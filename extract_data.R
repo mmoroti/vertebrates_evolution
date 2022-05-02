@@ -3,11 +3,11 @@
 library(picante)
 library(RRphylo)
 library(Rphylopars)
+library(phytools)
 library(ape)
 library(letsR)
 library(visdat)
 library(tidyverse)
-library(gapminder)
 
 #--- Extract data ---#
 # phylogeny 
@@ -15,7 +15,7 @@ setwd("E:/OneDrive/2019 - Moroti/Tese/Capitulo 1/RMarkdown/phylogeny")
 anura.phy <- read.tree("phy_amphibia.tre")
 reptile.phy <- read.tree("phy_reptile.tre")
 birds.phy <- read.tree("phy_birds.tre")
-mammals.phy <- 
+mammals.phy <- read.nexus("https://raw.githubusercontent.com/n8upham/MamPhy_v1/master/_DATA/MamPhy_fullPosterior_BDvr_DNAonly_4098sp_topoFree_FBDasZhouEtAl_MCC_v2_target.tre") 
 
 # functional traits
 setwd("E:/OneDrive/2019 - Moroti/Tese/Capitulo 1/RMarkdown/trait_data")
@@ -38,10 +38,10 @@ reptile_traits <- reptile_full_traits %>% dplyr::select(c(sp, SVL..mm.,litter_or
 vis_miss(reptile_traits) # 57.91% NA in brood size ~ 14.84% body size
 
 birds_traits <- birds_full_traits %>% dplyr::select(c(sp, BodyMass.Value,litter_or_clutch_size_n)) %>% rename(body_mass = BodyMass.Value, litter_size = litter_or_clutch_size_n)
-vis_miss(birds_traits) # 29.51% NA in brood size ~ 9.62% body size
+vis_miss(birds_traits) # 29.51% NA in litter_size ~ 9.62% body_mass
 
 mammals_traits <- mammals_full_traits %>% dplyr::select(c(sp, body_mass_g.avg.,Littersize)) %>% rename(body_mass = body_mass_g.avg., litter_size = Littersize)
-vis_miss(mammals_traits) # 0.92% NA in brood size ~ 22.46% body size
+vis_miss(mammals_traits) # 0.92% NA in body_mass ~ 22.46% litter_size
 
 #--- Checking phylogenis
 # Transposition
@@ -62,6 +62,7 @@ rem.col.phy <- c("Brachycephalus_sulfuratus","Chiasmocleis_alagoana","Crossodact
 
 amphibia_traits_short <- amphibia_traits[!amphibia_traits$sp %in% rem.col.phy,]
 amphibia_traits_short <- amphibia_traits_short[-34,]
+View(amphibia_traits_short)
 #nrow(amphibia_traits_short)
 
 # Fri Apr 29 17:06:10 2022 ------------------------------
@@ -71,30 +72,65 @@ test <- as.data.frame(amphibia_traits_short)
 test <- test %>% rename(species = sp) 
 test$body_size <- as.numeric(test$body_size)
 test$litter_size <- as.numeric(test$litter_size)
- View(test)
+View(as.matrix(test))
+rownames(test) <- test$species
 
+test2 <- test[,-1]
+class(test)
+
+View(test)
+View(test2)
 #list1 <- list(anura_phy)
 #list2 <- list(test)
 #appended_list <- append(list1, list2)
 #View(appended_list)
+phylo.heatmap(amphibia_phy_rooted,as.matrix(test2),standardize=TRUE,lwd=3,pts=FALSE)
+View(as.matrix(test))
+
+?phylo.heatmap
 
 # Imputação dados faltantes - SVL/Body mass - Número de prole
 #Brownian motion
-p_BM <- phylopars(trait_data = test, tree = anura_phy,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE)
+p_BM <- phylopars(trait_data = test, tree = amphibia_phy_rooted,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE)
+
 
 p_BM$anc_recon[1:20,] # Data with imputed species means
 p_BM$anc_var[1:20,] # Variances for each estimate
 p_BM$anc_recon[1:20,] - sqrt(p_BM$anc_var[1:20,])*1.96 # Lower 95% CI
 p_BM$anc_recon[1:20,] + sqrt(p_BM$anc_var[1:20,])*1.96 # Upper 95% CI
 
-p_OU <- phylopars(trait_data = test, tree = anura_phy,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
+phylo.heatmap(amphibia_phy_rooted,as.matrix(traits_amphy_input),standardize=TRUE,lwd=3,
+              pts=FALSE)
+###
+anura_phy_ultra <- force.ultrametric(anura_phy)
+amphibia_phy_rooted <- ape::multi2di(anura_phy_ultra)
+is.ultrametric(amphibia_phy_rooted)
 
+p_OU <- phylopars(trait_data = test, tree = amphibia_phy_rooted,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
 
+amphibia_phy_rooted
+
+p_OU$anc_recon[1:20,] # Data with imputed species means
+p_OU$anc_var[1:20,] # Variances for each estimate
+
+p_OU$anc_recon[1:20,] - sqrt(p_BM$anc_var[1:20,])*1.96 # Lower 95% CI
+p_OU$anc_recon[1:20,] + sqrt(p_BM$anc_var[1:20,])*1.96 # Upper 95% CI
+View(p_OU$anc_recon)
 
 ###
+# Traits amphibia
+traits_amphy_input <- p_BM$anc_recon[1:562,]
+traits_amphy_input <- as.data.frame(traits_amphy_input)
+###
+View(traits_amphy_input)
 #--- Taxa de evolução dos atributos
-svl <- log10(as.numeric(amphibia_traits_short$body_size))
-names(svl) <- amphibia_traits_short$sp
+svl <- log10(as.numeric(traits_amphy_input$body_size))
+names(svl) <- rownames(traits_amphy_input)
 svl
+
+rates.anura <- RRphylo(tree= amphibia_phy_rooted, y=svl)
+rates_anura <- rates.anura$rates[546:1091,]
+View(rates_anura)
+?RRphylo
 # Extrair váriaveis climáticas - LetsR
 # modelos PGLS
