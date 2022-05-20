@@ -472,6 +472,173 @@ View(rates.mammals.mass$rates)
 rates_mammals_svl <- rates.mammals.mass$rates[208:415,]
 rates_mammals_litter <- rates.mammals.litter$rates[208:415,]
 
+###---------------------------------------------------###
+# Fri May 20 10:45:41 2022 ------------------------------
+### Calculing trait evolution rate without imputation
+
+#--- traits
+short_amphibia_traits
+vis_miss(short_amphibia_traits) # 64.64% NA in brood size ~ 3.72% body size
+short_reptile_traits
+vis_miss(short_reptile_traits) # 58.02% NA in brood size ~ 16.54% body size
+short_birds_traits
+vis_miss(short_birds_traits) # 26.5% NA in litter_size ~ 6.13% body_mass
+short.mammals.traits
+vis_miss(short.mammals.traits) # 0.96% NA in body_mass ~ 23.08%
+
+#---Phylogenies
+anura.phy 
+reptile.phy 
+birds.phy
+mammals.phy
+
+#--- Cut traits
+litter_amph <- short_amphibia_traits[,-2]
+litter_squa <- short_reptile_traits[,-2]
+litter_bird <- short_birds_traits[,-2]
+litter_mamm <- short.mammals.traits[,-2]
+
+body_amph <- short_amphibia_traits[,-3]
+body_squa <- short_reptile_traits[,-3]
+body_bird <- short_birds_traits[,-3]
+body_mamm <- short.mammals.traits[,-3]
+
+# Removing missing data
+litter_amph <- remove_missing(litter_amph, vars=names(litter_amph))
+nrow(litter_amph) # 207 spp
+litter_squa <- remove_missing(litter_squa, vars=names(litter_squa))
+nrow(litter_squa) #170 spp
+litter_bird <- remove_missing(litter_bird, vars=names(litter_bird))
+nrow(litter_bird) # 516 spp
+litter_mamm <- remove_missing(litter_mamm, vars=names(litter_mamm))
+nrow(litter_mamm) # 160 spp
+
+body_amph <- remove_missing(body_amph, vars=names(body_amph))
+nrow(body_amph) # 546 spp
+body_squa <- remove_missing(body_squa, vars=names(body_squa))
+nrow(body_squa) # 338 spp
+body_bird <- remove_missing(body_bird, vars=names(body_bird))
+nrow(body_bird) # 659 spp
+body_mamm <- remove_missing(body_mamm, vars=names(body_mamm))
+nrow(body_mamm) # 206 spp
+
+#--- Match with phylogeny
+# Transposition
+# Anura
+body_amphi_trans <- t(body_amph)
+colnames(body_amphi_trans) <- body_amph[,1]
+#body_amphi_trans <- as.matrix(body_amphi_trans[-1, ]) #remove sp line 
+
+litter_amph_trans <- as.matrix(t(litter_amph))
+colnames(litter_amph_trans) <- litter_amph[,1]
+#litter_mamm_trans_t <- litter_mamm_trans[-1, ]
+
+# Squamata
+# Birds
+
+# Mammals
+body_mamm_trans <- as.matrix(t(body_mamm))
+colnames(body_mamm_trans) <- body_mamm[,1]
+#body_mamm_trans <- body_mamm_trans[-1, ] #remove sp line 
+
+litter_mamm_trans <- as.matrix(t(litter_mamm))
+colnames(litter_mamm_trans) <- litter_mamm[,1]
+#litter_mamm_trans_t <- litter_mamm_trans[-1, ]
+
+#--- Match with phylogeny
+#match.phylo.comm(mammals.upham.drop, body_mamm_trans)
+# Anura
+match.phylo.comm(anura_phy,litter_amph_trans)
+body_amph_ <- body_amph[-34,] 
+
+anura_phy_body <- prune.sample(body_amphi_trans, 
+                                 anura_phy)
+anura_phy_litter <- prune.sample(litter_amph_trans, 
+                                 anura_phy)
+
+#Squamata
+#Birds
+
+# Mammals
+mammals_phy_body <- prune.sample(body_mamm_trans, 
+                                 mammals.upham.drop)
+mammals_phy_litter <- prune.sample(litter_mamm_trans, 
+                                 mammals.upham.drop)
+
+# Calculando taxa de evolução do atributo
+#--- Calculing trait evolution rate
+# Preparing the data
+# Anura
+svl_amph_sem <- as.numeric(body_amph_$body_size)
+litter_size_amph_sem <- as.numeric(litter_amph$litter_size)
+
+names(svl_amph_sem) <- body_amph_$species
+names(litter_size_amph_sem) <- litter_amph$species
+
+# Squamata
+#svl_input_squamata <- as.numeric(traits_squamata_input$body_size)
+#litter_size_input_squamata <- as.numeric(traits_squamata_input$litter_size)
+
+#names(svl_input_squamata) <- rownames(traits_squamata_input)
+#names(litter_size_input_squamata) <- rownames(traits_squamata_input)
+
+# Birds
+#mass_input_birds <- as.numeric(traits_birds_input$body_mass)
+#litter_size_input_birds <- as.numeric(traits_birds_input$litter_size)
+
+#names(mass_input_birds) <- rownames(traits_birds_input)
+#names(litter_size_input_birds) <- rownames(traits_birds_input)
+
+# Mammals
+mass_mammals_sem <- as.numeric(body_mamm$body_mass)
+litter_mammals_sem <- as.numeric(litter_mamm$litter_size)
+
+names(mass_mammals_sem) <- body_mamm$species
+names(litter_mammals_sem) <- litter_mamm$species
+
+#--- Evolution rate with imputed data
+# With data imputation
+# Anura
+svl_amph_sem 
+litter_size_amph_sem
+
+rates.anura.svl.sem <- RRphylo(tree= anura_phy_body, y=svl_amph_sem)
+rates.anura.litter.sem <- RRphylo(tree= anura_phy_litter, y=litter_size_amph_sem)
+
+View(rates.anura.svl.sem$rates)
+# Creating objetc Anura rates
+rates_anura_svl_sem <- rates.anura.svl.sem$rates[545:1089,]
+rates_anura_litter <- rates.anura.litter.sem$rates[207:413,]
+
+# Squamata
+#rates.squa.svl <- RRphylo(tree= squamata_phy_rooted, y=svl_input_squamata)
+#rates.squa.litter <- RRphylo(tree= squamata_phy_rooted, y=litter_size_input_squamata)
+# Visualizing squamata rates
+#rates_squa_svl <- rates.squa.svl$rates[405:809,]
+#rates_squa_litter <- rates.squa.litter$rates[405:809,]
+
+# Birds
+#rates.bird.mass <- RRphylo(tree= birds_phy_rooted, y=mass_input_birds)
+#rates.bird.litter <- RRphylo(tree= birds_phy_rooted, y=litter_size_input_birds)
+# Visualizing birds rates
+#rates_bird_svl <- rates.bird.mass$rates[405:809,]
+#rates_bird_litter <- rates.bird.litter$rates[405:809,]
+
+# Mammals
+rates.mammals.mass.sem <- RRphylo(tree= mammals_phy_body, y= mass_mammals_sem)
+
+rates.mammals.litter.sem <- RRphylo(tree=  mammals_phy_litter, y=litter_mammals_sem)
+View(rates.mammals.mass.sem$rates)
+rates.mammals.litter.sem$rates
+
+# Visualizing mammals rates
+rates_mammals_svl <- rates.mammals.mass.sem$rates[206:411,]
+rates_mammals_litter <- rates.mammals.litter.sem$rates[160:319,]
+
+###---------------------------------------------------###
+# Fri May 20 10:47:12 2022 ------------------------------
 # Extrair váriaveis climáticas - LetsR
 
+###---------------------------------------------------###
+# Fri May 20 10:47:12 2022 ------------------------------
 # Modelos PGLS
