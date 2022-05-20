@@ -528,13 +528,25 @@ nrow(body_mamm) # 206 spp
 body_amphi_trans <- t(body_amph)
 colnames(body_amphi_trans) <- body_amph[,1]
 #body_amphi_trans <- as.matrix(body_amphi_trans[-1, ]) #remove sp line 
-
 litter_amph_trans <- as.matrix(t(litter_amph))
 colnames(litter_amph_trans) <- litter_amph[,1]
 #litter_mamm_trans_t <- litter_mamm_trans[-1, ]
 
 # Squamata
+body_squa_trans <- t(body_squa)
+colnames(body_squa_trans) <- body_squa[,1]
+#body_amphi_trans <- as.matrix(body_amphi_trans[-1, ]) #remove sp line 
+litter_squa_trans <- as.matrix(t(litter_squa))
+colnames(litter_squa_trans) <- litter_squa[,1]
+
 # Birds
+body_bird_trans <- t(body_bird)
+colnames(body_bird_trans) <- body_bird[,1]
+#body_amphi_trans <- as.matrix(body_amphi_trans[-1, ]) #remove sp line 
+View(litter_bird_trans)
+
+litter_bird_trans <- as.matrix(t(litter_bird))
+colnames(litter_bird_trans) <- litter_bird[,1]
 
 # Mammals
 body_mamm_trans <- as.matrix(t(body_mamm))
@@ -557,7 +569,17 @@ anura_phy_litter <- prune.sample(litter_amph_trans,
                                  anura_phy)
 
 #Squamata
+squa_phy_body <- prune.sample(body_squa_trans, 
+                               squamata_phy)
+squa_phy_litter <- prune.sample(litter_squa_trans, 
+                                 squamata_phy)
+nrow(litter_squa)
+
 #Birds
+bird_phy_body <- prune.sample(body_bird_trans, 
+                              birds_phy)
+bird_phy_litter <- prune.sample(litter_bird_trans, 
+                                birds_phy)
 
 # Mammals
 mammals_phy_body <- prune.sample(body_mamm_trans, 
@@ -576,18 +598,18 @@ names(svl_amph_sem) <- body_amph_$species
 names(litter_size_amph_sem) <- litter_amph$species
 
 # Squamata
-#svl_input_squamata <- as.numeric(traits_squamata_input$body_size)
-#litter_size_input_squamata <- as.numeric(traits_squamata_input$litter_size)
+svl_squamata <- as.numeric(body_squa$body_size)
+litter_size_squamata <- as.numeric(litter_squa$litter_size)
 
-#names(svl_input_squamata) <- rownames(traits_squamata_input)
-#names(litter_size_input_squamata) <- rownames(traits_squamata_input)
+names(svl_squamata) <- body_squa$species
+names(litter_size_squamata) <- litter_squa$species
 
 # Birds
-#mass_input_birds <- as.numeric(traits_birds_input$body_mass)
-#litter_size_input_birds <- as.numeric(traits_birds_input$litter_size)
+mass_birds <- as.numeric(body_bird$body_mass)
+litter_size_birds <- as.numeric(litter_bird$litter_size)
 
-#names(mass_input_birds) <- rownames(traits_birds_input)
-#names(litter_size_input_birds) <- rownames(traits_birds_input)
+names(mass_birds) <- body_bird$species
+names(litter_size_birds) <- litter_bird$species
 
 # Mammals
 mass_mammals_sem <- as.numeric(body_mamm$body_mass)
@@ -606,23 +628,25 @@ rates.anura.svl.sem <- RRphylo(tree= anura_phy_body, y=svl_amph_sem)
 rates.anura.litter.sem <- RRphylo(tree= anura_phy_litter, y=litter_size_amph_sem)
 
 View(rates.anura.svl.sem$rates)
-# Creating objetc Anura rates
+# Creating object Anura rates
 rates_anura_svl_sem <- rates.anura.svl.sem$rates[545:1089,]
 rates_anura_litter <- rates.anura.litter.sem$rates[207:413,]
 
 # Squamata
-#rates.squa.svl <- RRphylo(tree= squamata_phy_rooted, y=svl_input_squamata)
-#rates.squa.litter <- RRphylo(tree= squamata_phy_rooted, y=litter_size_input_squamata)
-# Visualizing squamata rates
-#rates_squa_svl <- rates.squa.svl$rates[405:809,]
-#rates_squa_litter <- rates.squa.litter$rates[405:809,]
+rates.squa.svl.sem <- RRphylo(tree= squa_phy_body, y=svl_squamata)
+rates.squa.litter.sem <- RRphylo(tree= squa_phy_litter, y=litter_size_squamata)
+
+# Creating object squamata rates
+rates_squa_svl_sem <- rates.squa.svl.sem$rates[338:675,]
+rates_squa_litter_sem <- rates.squa.litter.sem$rates[170:339,]
 
 # Birds
-#rates.bird.mass <- RRphylo(tree= birds_phy_rooted, y=mass_input_birds)
-#rates.bird.litter <- RRphylo(tree= birds_phy_rooted, y=litter_size_input_birds)
+rates.bird.mass.sem <- RRphylo(tree= bird_phy_body, y=mass_birds)
+rates.bird.litter.sem <- RRphylo(tree= bird_phy_litter, y=litter_size_birds)
+
 # Visualizing birds rates
-#rates_bird_svl <- rates.bird.mass$rates[405:809,]
-#rates_bird_litter <- rates.bird.litter$rates[405:809,]
+rates_bird_svl <- rates.bird.mass.sem$rates[659:1317,]
+rates_bird_litter <- rates.bird.litter.sem$rates[516:1031,]
 
 # Mammals
 rates.mammals.mass.sem <- RRphylo(tree= mammals_phy_body, y= mass_mammals_sem)
@@ -634,6 +658,8 @@ rates.mammals.litter.sem$rates
 # Visualizing mammals rates
 rates_mammals_svl <- rates.mammals.mass.sem$rates[206:411,]
 rates_mammals_litter <- rates.mammals.litter.sem$rates[160:319,]
+
+### Rev Bayes ?
 
 ###---------------------------------------------------###
 # Fri May 20 10:47:12 2022 ------------------------------
