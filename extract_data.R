@@ -9,6 +9,7 @@ library(letsR)
 library(visdat)
 library(tidyverse)
 library(ggExtra)
+library(cowplot)
 
 #--- Extract data ---#
 # phylogeny 
@@ -127,7 +128,7 @@ View(short_birds_traits)
 #Removendo nomes em duplicada
 short.birds.traits <- short_birds_traits %>% distinct(sp, .keep_all = TRUE)
 View(short.birds.traits)
-
+nrow(short.birds.traits)
 # Mammals
 #--- Checking phylogenis
 # In mammals, the tree proposed by Upham needs some nomenclature adjustments to proceed with the analysis.
@@ -152,7 +153,7 @@ mammals_trans <- mammals_trans[-1, ] #remove sp line
 #--- Match with phylogeny
 match.phylo.comm(mammals.upham.drop, mammals_trans)
 mammals_phy <- prune.sample(mammals_trans, mammals.upham.drop)
-
+ncol(mammals_trans)
 #check names
 #name <- as.data.frame(mammals.upham.drop$tip.label)
 #View(name)
@@ -230,8 +231,8 @@ anura_traits_fig <- ggplot(traits_amphy_input, aes(x=svl, y=litter_size)) +
   stat_smooth(method = "loess") +
   theme_gray(base_size = 10)
 
-p1 <- ggMarginal(anura_traits_fig, type="histogram")
-p2 <- ggMarginal(anura_traits_fig, type="density")
+p4 <- ggMarginal(anura_traits_fig, type="histogram")
+p5 <- ggMarginal(anura_traits_fig, type="density")
 
 ###---------------------------------------
 # Tue May 17 17:13:16 2022 ------------------------------
@@ -393,7 +394,7 @@ mammals_traits_fig <- ggplot(traits_mammals_input, aes(x=body_mass, y=litter_siz
 p9 <- ggMarginal(mammals_traits_fig, type="histogram")
 p10 <- ggMarginal(mammals_traits_fig, type="density")
 p10
-
+?RRphylo
 # ou motion
 mammals_traits_fig_ou <- ggplot(traits_mammals_input_ou, aes(x=body_mass, y=litter_size)) +
   geom_point() +
@@ -407,6 +408,8 @@ p11
 p12
 
 View(traits_birds_input)
+
+plot_grid(p2,p5,p6,p10)
 
 #------------------------------------
 #--- Calculing trait evolution rate
@@ -447,6 +450,7 @@ rates.anura.litter <- RRphylo(tree= amphibia_phy_rooted, y=litter_size_input)
 # Visualizing Anura rates
 rates_anura_svl <- rates.anura.svl$rates[546:1091,]
 rates_anura_litter <- rates.anura.litter$rates[546:1091,]
+
 
 # Squamata
 rates.squa.svl <- RRphylo(tree= squamata_phy_rooted, y=svl_input_squamata)
