@@ -1,9 +1,9 @@
 # Mon May 30 11:31:00 2022 ------------------------------
 
-# I modified the function fitGeospiza so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is fit_modified
+# I modified the function fitGeospiza so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is fit_modified2. In fit_modified2, I included the aicw function from the geiger package to also return us the AICw in the model comparison.
 
 #---- CREATE a FUNCTION to COMPARE EVOLUTION MODELS
-fit_modified=function(phy, trait){
+fit_modified2=function(phy, trait){
   #trait=match.arg(trait, c("body_size","litter_size"))
   
   # define set of models to compare
@@ -13,7 +13,7 @@ fit_modified=function(phy, trait){
   ## ESTIMATING measurement error ##
   aic.se=numeric(length(models))
   lnl.se=numeric(length(models))
-  
+  w.se=numeric(length(models))
   for(m in 1:length(models)){
     cat("\n\n\n\n\t*** ", paste(toupper(summaries[m]),": fitting ", sep=""), models[m],
         " with SE *** \n", sep="")
@@ -22,12 +22,14 @@ fit_modified=function(phy, trait){
     print(tmp)
     aic.se[m]=tmp$opt$aicc
     lnl.se[m]=tmp$opt$lnL
+    w.se[m]=tmp$opt$aic
   }
   
   
   ## ASSUMING no measurement error ##
   aic=numeric(length(models))
   lnl=numeric(length(models))
+  w.se=numeric(length(models))
   
   for(m in 1:length(models)){
     cat("\n\n\n\n\t*** ", paste(toupper(summaries[m]),": fitting ", sep=""), models[m],
@@ -36,6 +38,7 @@ fit_modified=function(phy, trait){
     print(tmp)
     aic[m]=tmp$opt$aicc
     lnl[m]=tmp$opt$lnL
+    w.se[m]=tmp$opt$aic
   }
   
   ## COMPARE AIC ##
@@ -57,9 +60,17 @@ fit_modified=function(phy, trait){
   print(daic.se, digits=2)
   cat("\n\n\n")
   
-  res_aicc=rbind(aic, aic.se, daic, daic.se)
-  rownames(res_aicc)=c("AICc","AICc_SE","dAICc", "dAICc_SE")
+  # wight akaike
+  w=aicw(w.se)
+  cat("\n\n\n\n\t\t\t\t*** MODEL COMPARISON: "," ***\n",sep="")
+  cat("\t\t   w-AIC values for models estimating SE
+    \t\t\t\t zero indicates the best model\n\n")
+  print(w, digits=2)
+  cat("\n\n\n")
   
+  res_aicc=rbind(aic, aic.se, daic, daic.se, w$w)
+  rownames(res_aicc)=c("AICc","AICc_SE","dAICc", "dAICc_SE", "AICw")
+  #print(w)
   return(res_aicc)
 }
 
@@ -69,16 +80,16 @@ anura_phy_ultra_2 <- force.ultrametric(anura_phy_body)
 amphibia_phy_rooted_2 <- ape::multi2di(anura_phy_ultra_2)
 
 # Body models
-body_anura_model <- fit_modified(amphibia_phy_rooted_2, svl_amph_sem)
-body_anura_model # OU model
+body_anura_model <- fit_modified2(amphibia_phy_rooted_2, svl_amph_sem)
+body_anura_model # dAICc OU model - AICw 1.0 OU
 
 # Ultrametric and rooted
 anura_phy_ultra_3 <- force.ultrametric(anura_phy_litter)
 amphibia_phy_rooted_3 <- ape::multi2di(anura_phy_ultra_3)
 
 # Litter size models
-litter_anura_model <- fit_modified(amphibia_phy_rooted_3, litter_size_amph_sem)
-litter_anura_model # OU model
+litter_anura_model <- fit_modified2(amphibia_phy_rooted_3, litter_size_amph_sem)
+litter_anura_model # aAICc OU model - AICw 0.75 OU
 
 ###--- Squamata
 # The Phylogeny needs to rooted and ultrametric
@@ -86,16 +97,16 @@ squa_phy_ultra_2 <- force.ultrametric(squa_phy_body)
 squa_phy_rooted_2 <- ape::multi2di(squa_phy_ultra_2)
 
 # Body size Model 
-body_squa_model <- fit_modified(squa_phy_rooted_2, svl_squamata)
-body_squa_model # OU model
+body_squa_model <- fit_modified2(squa_phy_rooted_2, svl_squamata)
+body_squa_model # dAICc OU model - AICw 0.99 OU
 
 # Ultrametric and rooted
 squa_phy_ultra_3 <- force.ultrametric(squa_phy_litter)
 squa_phy_rooted_3 <- ape::multi2di(squa_phy_ultra_3)
 
 # Litter size model
-litter_squa_model <- fit_modified(squa_phy_rooted_3, litter_size_squamata)
-litter_squa_model # OU model
+litter_squa_model <- fit_modified2(squa_phy_rooted_3, litter_size_squamata)
+litter_squa_model # dAICc OU model - AICw 0.88 OU
 
 ###--- Birds
 # The Phylogeny needs to rooted and ultrametric
@@ -103,16 +114,16 @@ bird_phy_ultra_2 <- force.ultrametric(bird_phy_body)
 bird_phy_rooted_2 <- ape::multi2di(bird_phy_ultra_2)
 
 # Body size Model 
-body_bird_model <- fit_modified(bird_phy_rooted_2, mass_birds)
-body_bird_model # EB model
+body_bird_model <- fit_modified2(bird_phy_rooted_2, mass_birds)
+body_bird_model # dAICc EB model - AICw 0.99 EB
 
 # Ultrametric and rooted
 bird_phy_ultra_3 <- force.ultrametric(bird_phy_litter)
 bird_phy_rooted_3 <- ape::multi2di(bird_phy_ultra_3)
 
 # Litter size model
-litter_bird_model <- fit_modified(bird_phy_rooted_3, litter_size_birds)
-litter_bird_model # OU model
+litter_bird_model <- fit_modified2(bird_phy_rooted_3, litter_size_birds)
+litter_bird_model # dAICc OU model - AICw 1.0 OU
 
 ###--- Mammals
 # The Phylogeny needs to rooted and ultrametric
@@ -120,13 +131,13 @@ mam_phy_ultra_2 <- force.ultrametric(mammals_phy_body)
 mam_phy_rooted_2 <- ape::multi2di(mam_phy_ultra_2)
 
 # Body size Model 
-body_mam_model <- fit_modified(mam_phy_rooted_2, mass_mammals_sem)
-body_mam_model # OU model
+body_mam_model <- fit_modified2(mam_phy_rooted_2, mass_mammals_sem)
+body_mam_model # dAICc OU model - 0.83 AICw
 
 # Ultrametric and rooted
 mam_phy_ultra_3 <- force.ultrametric(mammals_phy_litter)
 mam_phy_rooted_3 <- ape::multi2di(mam_phy_ultra_3)
 
 # Litter size model
-litter_mam_model <- fit_modified(mam_phy_rooted_3, litter_mammals_sem)
-litter_mam_model # OU model
+litter_mam_model <- fit_modified2(mam_phy_rooted_3, litter_mammals_sem)
+litter_mam_model # dAICc OU model - 0.99 AICw
