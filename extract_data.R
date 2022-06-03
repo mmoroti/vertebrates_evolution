@@ -869,16 +869,13 @@ temp_median_anura$bio1_median <- as.numeric(temp_median_anura$bio1_median)
 ###---------------------------------------------------###
 # Preparing the data for Phylogenetic Generalized Last Squared
 View(rates_anura_svl)
-
 sp_anura <- as.data.frame(rates_anura_svl)
 sp_anura <- cbind(sp_anura, Species = rownames(sp_anura))
 
-
-temp_median_anura
-
-test <- left_join(sp_anura,temp_median_anura,  by="Species")
-View(test)
+test <- anti_join(sp_anura,temp_median_anura,  by="Species")
+nrow(test) # 17 species with problems in nomenclature
 nrow(sp_anura)
+nrow(temp_median_anura) # need to change seventeen names
 
 ###---------------------------------------------------###
 # Modelos PGLS
