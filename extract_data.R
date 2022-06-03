@@ -6,6 +6,7 @@ library(Rphylopars)
 library(phytools)
 library(ape)
 library(letsR)
+library(raster)
 library(visdat)
 library(tidyverse)
 library(ggExtra)
@@ -86,6 +87,39 @@ fit_modified2=function(phy, trait){
   rownames(res_aicc)=c("AICc","AICc_SE","dAICc", "dAICc_SE", "AICw")
   #print(w)
   return(res_aicc)
+}
+
+# The function lets.summarise returns NA's in climate values. Ink remove modified the funcion. and remove the last 'for'
+lets.summarizer2 <- function (x, pos, xy = TRUE, fun = mean) 
+{
+  var <- x[, pos, drop = FALSE]
+  sp <- x[, -pos, drop = FALSE]
+  if (xy) {
+    sp <- sp[, -(1:2), drop = FALSE]
+  }
+  Species <- colnames(sp)
+  n <- length(Species)
+  lpos <- length(pos)
+  resum <- matrix(NA, nrow = n, ncol = lpos)
+  colnames(resum) <- colnames(var)
+  for (i in 1:n) {
+    vari <- var[(sp[, i] == 1), , drop = FALSE]
+    is_all_na <- apply(vari, 2, function(x) {
+      all(is.na(x))
+    })
+    if (nrow(vari) == 0 | all(is_all_na)) {
+      resum[i, ] <- rep(NA, lpos)
+    }
+    else {
+      if (any(is_all_na)) {
+        resum[i, is_all_na] <- NA
+      }
+      resum[i, !is_all_na] <- apply(vari[, !is_all_na, 
+                                         drop = FALSE], 2, fun, na.rm = TRUE)
+    }
+  }
+  resul <- as.data.frame(cbind(Species, resum))
+  return(resul)
 }
 
 #--- Extract data ---#
@@ -769,6 +803,8 @@ names(litter_size_input_mammals) <- rownames(traits_mammals_input)
 
 #--- Evolution rate with imputed data
 # With data imputation
+nrow(svl_input)
+
 # Anura
 rates.anura.svl <- RRphylo(tree= amphibia_phy_rooted, y=svl_input)
 rates.anura.litter <- RRphylo(tree= amphibia_phy_rooted, y=litter_size_input)
@@ -804,9 +840,45 @@ rates_mammals_litter <- rates.mammals.litter$rates[208:415,]
 ### Rev Bayes ?
 
 ###---------------------------------------------------###
-# Fri May 20 10:47:12 2022 ------------------------------
-# Extrair váriaveis climáticas - LetsR
+# Fri Jun 03 13:20:14 2022 ------------------------------
+# Extracting the climate data with package LetsR, function Letsaddvar
+#--- Anura
+# Directory
+setwd("E:/OneDrive/2019 - Moroti/Dados/Shape/Amphibia")
+dir()
+anura_ma <- readOGR("ANURA_SA_clip.shp")
+#anura_ma <- sf::st_transform(teste, "+proj=longlat +datum=WGS84")
+
+# Projection
+projection(r) <- projection(anura_ma)
+projection(anura_ma)
+
+# Creating PresenceAusence object for lets.addvar
+anura_presaus <- lets.presab(anura_ma , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+
+projection(anura_presaus$Richness_Raster) <- projection(r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+anura_temp_median <- lets.addvar(anura_presaus, r, fun = median, onlyvar = FALSE)
+View(anura_temp_median)
+# Now, we need to summarise the climate variables per specie
+temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = ncol(anura_temp_median), fun = median) 
+
+temp_median_anura$bio1_median <- as.numeric(temp_median_anura$bio1_median)
 
 ###---------------------------------------------------###
-# Fri May 20 10:47:12 2022 ------------------------------
+# Preparing the data for Phylogenetic Generalized Last Squared
+View(rates_anura_svl)
+
+sp_anura <- as.data.frame(rates_anura_svl)
+sp_anura <- cbind(sp_anura, Species = rownames(sp_anura))
+
+
+temp_median_anura
+
+test <- left_join(sp_anura,temp_median_anura,  by="Species")
+View(test)
+nrow(sp_anura)
+
+###---------------------------------------------------###
 # Modelos PGLS
