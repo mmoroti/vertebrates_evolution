@@ -12,6 +12,7 @@ library(tidyverse)
 library(ggExtra)
 library(cowplot)
 library(geiger)
+library(arbutus)
 
 #--- Function ---#
 # Mon May 30 11:31:00 2022 ------------------------------
@@ -842,40 +843,94 @@ rates_mammals_litter <- rates.mammals.litter$rates[208:415,]
 ###---------------------------------------------------###
 # Fri Jun 03 13:20:14 2022 ------------------------------
 # Extracting the climate data with package LetsR, function Letsaddvar
-#--- Anura
-# Directory
-setwd("E:/OneDrive/2019 - Moroti/Dados/Shape/Amphibia")
-dir()
-anura_ma <- readOGR("ANURA_SA_clip.shp")
-#anura_ma <- sf::st_transform(teste, "+proj=longlat +datum=WGS84")
-
-# Projection
-projection(r) <- projection(anura_ma)
-projection(anura_ma)
-
-# Creating PresenceAusence object for lets.addvar
-anura_presaus <- lets.presab(anura_ma , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-
-projection(anura_presaus$Richness_Raster) <- projection(r)
-
-# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-anura_temp_median <- lets.addvar(anura_presaus, r, fun = median, onlyvar = FALSE)
-View(anura_temp_median)
-# Now, we need to summarise the climate variables per specie
-temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = ncol(anura_temp_median), fun = median) 
-
-temp_median_anura$bio1_median <- as.numeric(temp_median_anura$bio1_median)
 
 ###---------------------------------------------------###
 # Preparing the data for Phylogenetic Generalized Last Squared
-View(rates_anura_svl)
-sp_anura <- as.data.frame(rates_anura_svl)
-sp_anura <- cbind(sp_anura, Species = rownames(sp_anura))
-
-test <- anti_join(sp_anura,temp_median_anura,  by="Species")
-nrow(test) # 17 species with problems in nomenclature
-nrow(sp_anura)
-nrow(temp_median_anura) # need to change seventeen names
 
 ###---------------------------------------------------###
 # Modelos PGLS
+# Loading data
+anura_dataset <- read.csv2("anura_dataset.csv", sep=',')
+{names(anura_dataset)
+
+anura_dataset <- anura_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+  
+anura_dataset$rates_anura_svl <- as.numeric(anura_dataset$rates_anura_svl)
+anura_dataset$rates_anura_litter <- as.numeric(anura_dataset$rates_anura_litter)
+anura_dataset$bio2 <- as.numeric(anura_dataset$bio2) 
+anura_dataset$bio3 <- as.numeric(anura_dataset$bio3) 
+anura_dataset$bio4 <- as.numeric(anura_dataset$bio4) 
+anura_dataset$bio7 <- as.numeric(anura_dataset$bio7) 
+anura_dataset$bio11 <- as.numeric(anura_dataset$bio11) 
+anura_dataset$bio15 <- as.numeric(anura_dataset$bio15) 
+anura_dataset$bio17 <- as.numeric(anura_dataset$bio17)}
+squamata_dataset <- read.csv2("squamata_dataset.csv", sep=',')
+{names(squamata_dataset)
+squamata_dataset <- squamata_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+
+squamata_dataset$rates_squa_svl <- as.numeric(squamata_dataset$rates_squa_svl)
+squamata_dataset$rates_squa_litter <- as.numeric(squamata_dataset$rates_squa_litter)
+squamata_dataset$bio2 <- as.numeric(squamata_dataset$bio2) 
+squamata_dataset$bio3 <- as.numeric(squamata_dataset$bio3) 
+squamata_dataset$bio4 <- as.numeric(squamata_dataset$bio4) 
+squamata_dataset$bio7 <- as.numeric(squamata_dataset$bio7) 
+squamata_dataset$bio11 <- as.numeric(squamata_dataset$bio11) 
+squamata_dataset$bio15 <- as.numeric(squamata_dataset$bio15) 
+squamata_dataset$bio17 <- as.numeric(squamata_dataset$bio17)}
+birds_dataset <- read.csv2("birds_dataset.csv", sep=',')
+{names(birds_dataset)
+
+birds_dataset <- birds_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+  
+  
+birds_dataset$rates_squa_svl <- as.numeric(birds_dataset$rates_squa_svl)
+birds_dataset$rates_squa_litter <- as.numeric(birds_dataset$rates_squa_litter)
+birds_dataset$bio2 <- as.numeric(birds_dataset$bio2) 
+birds_dataset$bio3 <- as.numeric(birds_dataset$bio3) 
+birds_dataset$bio4 <- as.numeric(birds_dataset$bio4) 
+birds_dataset$bio7 <- as.numeric(birds_dataset$bio7) 
+birds_dataset$bio11 <- as.numeric(birds_dataset$bio11) 
+birds_dataset$bio15 <- as.numeric(birds_dataset$bio15) 
+birds_dataset$bio17 <- as.numeric(birds_dataset$bio17)}
+mammals_dataset <- read.csv2("mammals_dataset.csv", sep=',')
+{names(birds_dataset)
+  
+  birds_dataset <- birds_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+  
+  birds_dataset$rates_squa_svl <- as.numeric(birds_dataset$rates_squa_svl)
+  birds_dataset$rates_squa_litter <- as.numeric(birds_dataset$rates_squa_litter)
+  birds_dataset$bio2 <- as.numeric(birds_dataset$bio2) 
+  birds_dataset$bio3 <- as.numeric(birds_dataset$bio3) 
+  birds_dataset$bio4 <- as.numeric(birds_dataset$bio4) 
+  birds_dataset$bio7 <- as.numeric(birds_dataset$bio7) 
+  birds_dataset$bio11 <- as.numeric(birds_dataset$bio11) 
+  birds_dataset$bio15 <- as.numeric(birds_dataset$bio15) 
+  birds_dataset$bio17 <- as.numeric(birds_dataset$bio17)}
+glimpse(squamata_dataset)
+#
+# PGLS
+# Anura
+model_anura_svl <- gls(rates_anura_svl ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=anura_dataset, correlation = corPagel(1,amphibia_phy_rooted))
+plot(model_anura_svl)
+summary(model_anura_svl)
+
+model_anura_litter <- gls(rates_anura_litter  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=anura_dataset, correlation = corPagel(1,amphibia_phy_rooted))
+plot(model_anura_litter)
+summary(model_anura_litter)
+
+# Squamata
+teste <- lm(rates_squa_svl  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=squamata_dataset)
+teste1 <- coefplot(teste, plot = FALSE, name = "Base", shorten = FALSE)
+teste2 <- coefplot(teste, plot = FALSE, name = "Interaction", shorten = FALSE)
+View(teste1)
+teste_2 <- rbind(teste1,teste2)
+
+model_squamata_svl <- gls(rates_squa_svl  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=squamata_dataset, correlation = corPagel(1,squamata_phy_rooted))
+summary(model_squamata_svl)
+plot(model_squamata_svl)
+
+model_squamata_litter <- gls(rates_squa_litter  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=squamata_dataset, correlation = corPagel(1, squamata_phy_rooted))
+
+summary(model_squamata_litter)
+plot(model_squamata_litter)
+
