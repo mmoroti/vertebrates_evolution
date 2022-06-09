@@ -12,7 +12,7 @@ library(tidyverse)
 library(ggExtra)
 library(cowplot)
 library(geiger)
-library(arbutus)
+
 
 #--- Function ---#
 # Mon May 30 11:31:00 2022 ------------------------------
@@ -882,50 +882,82 @@ birds_dataset <- read.csv2("birds_dataset.csv", sep=',')
 
 birds_dataset <- birds_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
   
-  
-birds_dataset$rates_squa_svl <- as.numeric(birds_dataset$rates_squa_svl)
-birds_dataset$rates_squa_litter <- as.numeric(birds_dataset$rates_squa_litter)
+birds_dataset <- birds_dataset[-1,]
+nrow(birds_dataset)
+View(birds_trans2)
+
+#--- Checking phylogenis
+# Transposition
+birds_trans2 <- t(birds_dataset)
+colnames(birds_trans2) <- birds_trans2[1,]
+birds_trans2 <- birds_trans2[-1, ] #remove sp line 
+#birds_trans <- birds_trans[,-34 ]#Aplastodiscus_weygoldti two times
+View(birds_trans2)
+
+#--- Match with phylogeny
+match.phylo.comm(birds_phy_rooted, birds_trans2) # "Crypturellus_tataupa",  "Crypturellus_obsoletus"
+birds_phy <- prune.sample(birds_trans2, birds_phy_rooted) # exclude Crypturellus
+
+# Transform in numeric variables
+birds_dataset$rates_bird_svl <- as.numeric(birds_dataset$rates_bird_svl)
+birds_dataset$rates_bird_litter <- as.numeric(birds_dataset$rates_bird_litter)
 birds_dataset$bio2 <- as.numeric(birds_dataset$bio2) 
 birds_dataset$bio3 <- as.numeric(birds_dataset$bio3) 
 birds_dataset$bio4 <- as.numeric(birds_dataset$bio4) 
 birds_dataset$bio7 <- as.numeric(birds_dataset$bio7) 
 birds_dataset$bio11 <- as.numeric(birds_dataset$bio11) 
 birds_dataset$bio15 <- as.numeric(birds_dataset$bio15) 
-birds_dataset$bio17 <- as.numeric(birds_dataset$bio17)}
+birds_dataset$bio17 <- as.numeric(birds_dataset$bio17)
+}
 mammals_dataset <- read.csv2("mammals_dataset.csv", sep=',')
-{names(birds_dataset)
+{names(mammals_dataset)
+  visdat::vis_miss(mammals_dataset)
   
-  birds_dataset <- birds_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+mammals_dataset$Species <- str_replace_all(mammals_dataset$Species, "\\s", "_") 
+mammals_dataset$Species <- str_replace_all(mammals_dataset$Species,"Lycalopex", "Pseudalopex") %>% str_replace_all("Puma_yagouaroundi","Herpailurus_yagouaroundi") 
   
-  birds_dataset$rates_squa_svl <- as.numeric(birds_dataset$rates_squa_svl)
-  birds_dataset$rates_squa_litter <- as.numeric(birds_dataset$rates_squa_litter)
-  birds_dataset$bio2 <- as.numeric(birds_dataset$bio2) 
-  birds_dataset$bio3 <- as.numeric(birds_dataset$bio3) 
-  birds_dataset$bio4 <- as.numeric(birds_dataset$bio4) 
-  birds_dataset$bio7 <- as.numeric(birds_dataset$bio7) 
-  birds_dataset$bio11 <- as.numeric(birds_dataset$bio11) 
-  birds_dataset$bio15 <- as.numeric(birds_dataset$bio15) 
-  birds_dataset$bio17 <- as.numeric(birds_dataset$bio17)}
-glimpse(squamata_dataset)
+mammals_dataset <- mammals_dataset %>% rename(bio2 = CHELSA_bio2_1981.2010_V.2.1_median,bio3 = CHELSA_bio3_1981.2010_V.2.1_median, bio4 = CHELSA_bio4_1981.2010_V.2.1_median,bio7 = CHELSA_bio7_1981.2010_V.2.1_median, bio11 = CHELSA_bio11_1981.2010_V.2.1_median, bio15 = CHELSA_bio15_1981.2010_V.2.1_median, bio17 = CHELSA_bio17_1981.2010_V.2.1_median) 
+
+# Join with climate niche
+litter_mammals <- as.data.frame(rates_mammals_litter)
+svl_mammals <- as.data.frame(rates_mammals_svl)
+
+rates_mammals <- cbind(Species = rownames(svl_mammals), svl_mammals, litter_mammals)
+
+mammals_dataset2 <- left_join(rates_mammals, mammals_dataset, by="Species")
+nrow(mammals_dataset2)
+
+# Transform in numeric variables
+  mammals_dataset2$rates_mammals_svl <- as.numeric(mammals_dataset2$rates_mammals_svl)
+  
+  mammals_dataset2$rates_mammals_litter <- as.numeric(mammals_dataset2$rates_mammals_litter)
+  mammals_dataset2$bio2 <- as.numeric(mammals_dataset2$bio2) 
+  mammals_dataset2$bio3 <- as.numeric(mammals_dataset2$bio3) 
+  mammals_dataset2$bio4 <- as.numeric(mammals_dataset2$bio4) 
+  mammals_dataset2$bio7 <- as.numeric(mammals_dataset2$bio7) 
+  mammals_dataset2$bio11 <- as.numeric(mammals_dataset2$bio11) 
+  mammals_dataset2$bio15 <- as.numeric(mammals_dataset2$bio15) 
+  mammals_dataset2$bio17 <- as.numeric(mammals_dataset2$bio17)
+mammals_dataset <- mammals_dataset2[,-4]
+visdat::vis_miss(mammals_dataset)
+    }
+
 #
 # PGLS
 # Anura
 model_anura_svl <- gls(rates_anura_svl ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=anura_dataset, correlation = corPagel(1,amphibia_phy_rooted))
+
 plot(model_anura_svl)
 summary(model_anura_svl)
 
 model_anura_litter <- gls(rates_anura_litter  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=anura_dataset, correlation = corPagel(1,amphibia_phy_rooted))
+
 plot(model_anura_litter)
 summary(model_anura_litter)
 
 # Squamata
-teste <- lm(rates_squa_svl  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=squamata_dataset)
-teste1 <- coefplot(teste, plot = FALSE, name = "Base", shorten = FALSE)
-teste2 <- coefplot(teste, plot = FALSE, name = "Interaction", shorten = FALSE)
-View(teste1)
-teste_2 <- rbind(teste1,teste2)
-
 model_squamata_svl <- gls(rates_squa_svl  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=squamata_dataset, correlation = corPagel(1,squamata_phy_rooted))
+
 summary(model_squamata_svl)
 plot(model_squamata_svl)
 
@@ -933,4 +965,26 @@ model_squamata_litter <- gls(rates_squa_litter  ~ bio2 + bio3 + bio4 + bio7 + bi
 
 summary(model_squamata_litter)
 plot(model_squamata_litter)
+
+# Birds
+model_birds_svl <- gls(rates_bird_svl ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=birds_dataset, correlation = corPagel(1, birds_phy))
+
+summary(model_birds_svl)
+plot(model_birds_svl)
+
+model_birds_litter <- gls(rates_bird_litter  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=birds_dataset, correlation = corPagel(1, birds_phy))
+
+summary(model_birds_litter)
+plot(model_birds_litter)
+
+# Mammals
+model_mammals_svl <- gls(rates_mammals_svl  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=mammals_dataset, correlation = corPagel(1, mammals_phy, fixed=T))
+
+summary(model_mammals_svl)
+plot(model_mammals_svl)
+
+model_mammals_litter <- gls(rates_mammals_litter  ~ bio2 + bio3 + bio4 + bio7 + bio11 + bio15 + bio17, data=mammals_dataset, correlation = corPagel(1, mammals_phy))
+
+summary(model_mammals_litter)
+plot(model_mammals_litter)
 
