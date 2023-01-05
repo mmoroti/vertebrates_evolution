@@ -12,13 +12,14 @@ library(tidyverse)
 library(ggExtra)
 library(cowplot)
 library(geiger)
+library(rgdal)
 
 #--- Function ---#
 # Mon May 30 11:31:00 2022 ------------------------------
 
 # I modified the function fitGeospiza so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is fit_modified2. In fit_modified2, I included the aicw function from the geiger package to also return us the AICw in the model comparison.
 #---- CREATE a FUNCTION to COMPARE EVOLUTION MODELS
-fit_modified2=function(phy, trait){
+fit_modifiedfunction(phy, trait){
   #trait=match.arg(trait, c("body_size","litter_size"))
   
   # define set of models to compare
@@ -580,7 +581,7 @@ is.ultrametric(amphibia_phy_rooted)
 
 p_OU <- phylopars(trait_data = short_amphibia_traits, tree = amphibia_phy_rooted,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
 
-amphibia_phy_rooted
+View(short_amphibia_traits)
 
 p_OU$anc_recon[1:20,] # Data with imputed species means
 p_OU$anc_var[1:20,] # Variances for each estimate
@@ -840,31 +841,7 @@ rates_mammals_litter <- rates.mammals.litter$rates[208:415,]
 ### Rev Bayes ?
 
 ###---------------------------------------------------###
-# Fri Jun 03 13:20:14 2022 ------------------------------
-# Extracting the climate data with package LetsR, function Letsaddvar
-#--- Anura
-# Directory
-setwd("E:/OneDrive/2019 - Moroti/Dados/Shape/Amphibia")
-dir()
-anura_ma <- readOGR("ANURA_SA_clip.shp")
-#anura_ma <- sf::st_transform(teste, "+proj=longlat +datum=WGS84")
 
-# Projection
-projection(r) <- projection(anura_ma)
-projection(anura_ma)
-
-# Creating PresenceAusence object for lets.addvar
-anura_presaus <- lets.presab(anura_ma , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-
-projection(anura_presaus$Richness_Raster) <- projection(r)
-
-# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-anura_temp_median <- lets.addvar(anura_presaus, r, fun = median, onlyvar = FALSE)
-View(anura_temp_median)
-# Now, we need to summarise the climate variables per specie
-temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = ncol(anura_temp_median), fun = median) 
-
-temp_median_anura$bio1_median <- as.numeric(temp_median_anura$bio1_median)
 
 ###---------------------------------------------------###
 # Preparing the data for Phylogenetic Generalized Last Squared
