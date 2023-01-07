@@ -38,6 +38,76 @@ reptile_traits_short$Comb_sciname <- sub(" ", "_", reptile_traits_short$Comb_sci
 squamata_tree <- read.tree("squam_shl_new_Consensus_9755.tre")
 
 # remover NA's
-# transpor tabela
+body_reptile <- remove_missing(reptile_traits_short)
+# 688 spp. removed
+
+# transpor tabela 
+body_rep_trans <- t(body_reptile)
+View(body_rep_trans)
+colnames(body_rep_trans) <- body_rep_trans[1,]
+
+# check datasets
+ncol(body_rep_trans) # 9843spp
+
 # dar match com filogenia
-# calcular taxa de evolução 
+squamata_tree # 9755
+
+# Match traits with phylogeny without missing data
+squamata_phy_body <- prune.sample(body_rep_trans, 
+                                  squamata_tree) # 9487 spp.
+
+# Dataset needs adjustments 
+squamata_phy_body # 9487 spp - Perdemos 356 spp na árvore
+nrow(body_reptile) # 9843spp - dataset
+
+# remove species in body_reptile 
+names_phy <- as.data.frame(squamata_phy_body$tip.label)
+names(names_phy) = "Comb_sciname"
+
+# join with names present in phylogeny
+body_squa_tree <- left_join(names_phy, body_reptile, by = "Comb_sciname")
+
+nrow(body_squa_tree) # 9487 spp.
+squamata_phy_body # 9487 spp.
+
+# Preparing object to calculing trait evolution rate
+# Mammals
+mass_squamata <- as.numeric(body_squa_tree$BodyMass)
+names(mass_squamata) <- body_squa_tree$Comb_sciname
+mass_squamata
+
+# calcular taxa de evolução (dataset without NA's)
+rates.squamata <- RRphylo(tree= squamata_phy_body, y= mass_squamata)
+###
+rates_squamata_body <- rates.squamata$rates[5030:10059,]
+
+# Salvando dataset
+getwd()
+write.csv2(rates_amphibia_body,'rates_amphibia_body.csv')
+hist(log10(rates_amphibia_body**2))     
+
+###---
+# Imputation script
+# Calculing the best fit evolution model
+# Function fit_modified2 is required
+###--- Anura
+# The Phylogeny needs to rooted and ultrametric
+amphibia_phy_body <- force.ultrametric(amphibia_phy_body)
+amphibia_phy_body <- ape::multi2di(amphibia_phy_body)
+
+# Preparing the data
+# Anura
+svl_amph_sem <- as.numeric(body_amph$Body_size_mm)
+names(svl_amph_sem) <- body_amph$Species
+
+# Body models
+body_anura_model <- fit_modified2(amphibia_phy_body, svl_amph_sem)
+body_anura_model # dAICc OU model - AICw 1.0 OU
+?fit_modified
+
+###
+# Input data
+traits_anura_phy$Body_size_mm <- log10(as.numeric(traits_anura_phy$Body_size_mm))
+
+input_amphibia <- phylopars(trait_data = traits_anura_phy, tree = teste,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
+
