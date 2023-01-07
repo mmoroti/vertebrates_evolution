@@ -38,6 +38,7 @@ reptile_traits_short$Comb_sciname <- sub(" ", "_", reptile_traits_short$Comb_sci
 squamata_tree <- read.tree("squam_shl_new_Consensus_9755.tre")
 
 # remover NA's
+<<<<<<< HEAD
 body_reptile <- remove_missing(reptile_traits_short)
 # 688 spp. removed
 
@@ -111,3 +112,8 @@ traits_anura_phy$Body_size_mm <- log10(as.numeric(traits_anura_phy$Body_size_mm)
 
 input_amphibia <- phylopars(trait_data = traits_anura_phy, tree = teste,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
 
+=======
+# transpor tabela
+# dar match com filogenia
+# calcular taxa de evolução 
+>>>>>>> cb9ca797ad4282d7b12c164200d1818ba00ad8a4
