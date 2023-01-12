@@ -166,7 +166,7 @@ names(svl_amph_sem) <- body_amph$Species
 # Body models
 body_anura_model <- fit_modified2(amphibia_phy_body, svl_amph_sem)
 body_anura_model # dAICc OU model - AICw 1.0 OU
-?fit_modified
+?fit_modified'7'
 
 ###
 # Input data

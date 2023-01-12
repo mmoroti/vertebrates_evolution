@@ -31,7 +31,7 @@ birds_phy <- read.nexus("birds_consensus.tre")
 # Transposition
 birds_trans <- t(short)
 colnames(birds_trans) <- birds_trans[1,]
-View(birds_trans)
+View(birds_trans)++++++
 
 #--- Match with phylogeny
 birds_short_phy <- prune.sample(birds_trans, birds_phy)
@@ -47,3 +47,6 @@ mass_birds
 # body size
 rates.birds.mass <- RRphylo(tree= birds_short_phy, y= mass_birds)
 memory.limit(size=number)
+
+gc()
+memory.limit (9999999999)
