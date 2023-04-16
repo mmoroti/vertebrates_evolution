@@ -1,5 +1,5 @@
 ---
-title: "01_extraction_data"
+title: "01_extraction"
 author: "matheus_moroti"
 format: html
 editor: visual
@@ -20,7 +20,9 @@ library(Rphylopars) # input data
 ```
 
 ### 0.1. Functions
-I modified the function `fitGeospiza` so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is ```fit_modified```. I included the AICw function from the geiger package to also return us the value of AICw in the model comparison.
+
+I modified the function `fitGeospiza` so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is `fit_modified`. I included the AICw function from the geiger package to also return us the value of AICw in the model comparison.
+
 ```{r}
 fit_modified <- function(phy, trait){
   #trait=match.arg(trait, c("body_size","litter_size"))
@@ -172,6 +174,7 @@ names(mammals_list_af) <- gsub("Lycalopex", "Pseudalopex", fixed=T, names(mammal
 ```{r}
 ```
 
+
 ### 1.0. Obtain last common ancestor of tetrapods of Atlantic Forest
 
 #### 1.1.1. Amphibia
@@ -262,9 +265,9 @@ tree_subset(mammals_phy_all, node=anc_mammals)
 
 ### 2.0 Match phylogeny with traits
 
-#### 2.1. All species with imputed data
+#### 2.1. All species with imputed data (Fully dataset)
 
-Here we will use only the harmonized data, i.e. all species with imputed body size values and all species present in the phylogeny. Here we will leave only the data ready for imputation and the tree. 
+Here we will use only the harmonized data, i.e. all species with imputed body size values and all species present in the phylogeny. Here we will leave only the data ready for imputation and the tree.
 
 ##### 2.1.1. Amphibia
 
@@ -418,11 +421,12 @@ mammals_traits_with_phylogeny <- left_join(names_phy, mammals_traits_select, by 
 lengths(mammals_traits_phy[4]) == nrow(mammals_traits_with_phylogeny) # 3853 spp with missing data
 ```
 
-#### 2.2. Only species with traits
+#### 2.2. Only species with traits (Harmonized dataset)
 
-Only species that already had body size/mass data, that is, data that we will not impute for comparative purposes. Note: Only Amphibia and mammals needs comparative purposes. 
+Only species that already had body size/mass data, that is, data that we will not impute for comparative purposes. Note: Only Amphibia and mammals needs comparative purposes.
 
 ##### 2.2.1. Amphibia
+
 ```{r}
 anura_traits_with_phylogeny # conjunto de dados que com NA's que não foram encontrados na filogenia
 anura_traits_with_phylogeny_without_na <- remove_missing(anura_traits_with_phylogeny)  # removed 1400 spp.
@@ -485,12 +489,10 @@ lengths(mammals_traits_phy_without_na[4]) == nrow(mammals_traits_with_phylogeny_
 # 3771 spp without missing data
 ```
 
-
-
-
 ### 3.0. Input traits
-Herein, we used species dataset (phy + traits) without missing data for calculing evolution model
-#### 3.1. Select best fit evolution model
+
+Herein, we used species dataset (phy + traits) without missing data for calculing evolution model \#### 3.1. Select best fit evolution model \
+
 ##### 3.1.1. Amphibia
 ```{r}
 # Preparing the data
@@ -518,6 +520,7 @@ fit_modified(amphibia_phy_rooted, size_amph)
 ```
 
 ##### 3.1.2. Mammals
+
 ```{r}
 mammals_traits_with_phylogeny_without_na
 mass_mammals <- log10(as.numeric(mammals_traits_with_phylogeny_without_na$Mass))
@@ -542,9 +545,10 @@ fit_modified(mammals_phy_rooted, mass_mammals)# white model
 #----------------------------------------------------------#
 ```
 
-
 #### 3.2. Trait Imputation
+
 ##### 3.2.1. Amphibia
+
 ```{r}
 # The Phylogeny needs to rooted and ultrametric
 anura_phy_ultra <- force.ultrametric(anura_traits_phy)
@@ -564,6 +568,7 @@ input_traits_amp <- as.data.frame(input_traits_amp) %>%
 ```
 
 ##### 3.2.2. Mammals
+
 ```{r}
 # The Phylogeny needs to rooted and ultrametric
 mammals_phy_ultra <- force.ultrametric(mammals_traits_phy)
@@ -581,4 +586,35 @@ input_traits_mammals <- as.data.frame(input_traits_mammals) %>%
   rename(body_mass_log = input_traits_mammals)
 ```
 
+
 ### 4.0. Save dataset
+```{r}
+# Fully dataset
+# with all species and with imputed data for mammals and amphibians
+# amphibia
+write.tree(anura_traits_phy, "02_metrics/full_data/amphibia_fully.tre") 
+write.table(input_traits_amp, "02_metrics/full_data/amphibia_traits_fully.txt") 
+
+# squamata
+write.tree(squamata_traits_phy, "02_metrics/full_data/squamata_fully.tre") 
+write.table(squamata_traits_with_phylogeny, "02_metrics/full_data/squamata_traits_fully.txt") 
+
+# birds
+write.tree(birds_traits_phy, "02_metrics/full_data/birds_fully.tre") 
+write.table(birds_traits_select, "02_metrics/full_data/birds_traits_fully.txt") 
+
+# mammals
+write.tree(mammals_traits_phy, "02_metrics/full_data/mammals_fully.tre") 
+write.table(input_traits_mammals, "02_metrics/full_data/mammals_traits_fully.txt") 
+
+# Harmonized dataset
+# with excluded species with NA's in body size/body mass
+# amphibia
+write.tree(anura_traits_phy_without_na, "02_metrics/harmonized_data/amphibia_harm.tre") 
+write.table(anura_traits_with_phylogeny_without_na, "02_metrics/harmonized_data/amphibia_traits_harm.txt") 
+
+# mammals
+write.tree(mammals_traits_phy_without_na, "02_metrics/harmonized_data/mammals_harm.tre") 
+write.table(mammals_traits_with_phylogeny_without_na, "02_metrics/harmonized_data/mammals_traits_harm.txt") 
+```
+
