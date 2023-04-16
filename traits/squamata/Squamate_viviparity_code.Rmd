@@ -1,0 +1,336 @@
+---
+title: "Squamate viviparity"
+output: html_notebook
+editor_options: 
+  chunk_output_type: console
+---
+
+### Species-level phylogenetic path analyses
+
+```{r load data}
+  load("species_level_data.RData")
+  
+  dat <- dat # dat = global dataset; dataAA = Australasian dataset; etc.
+  # dat <- subset(dat,dat$source.reproductive.mode=="not imputed") # subset species with non-imputed reproductive mode
+
+  dat <- subset(dat, !is.na(dat$phylo_tree_names)) # Omit species not in the phylogenetic tree
+  # dat <- subset(dat, dat$in_phylo_tree=="yes") # Omit species resulting in a polytomous tree
+  
+  # Count viviparous species:
+  plyr::count(dat$reproduction)
+```
+
+```{r prepare data for analyses}
+  library(ape)
+
+  # Min-Max scaling:
+  dat$TMean = log10(dat$bio1 + 10) # make sure all values are above 0
+  dat$TSeas = log10(dat$bio4)
+  dat$PSeas = log10(dat$bio15)
+  dat$TInt = log10(dat$inter_temp_var)
+  dat$PInt = log10(dat$inter_prec_var)
+  dat$Elev = log10(dat$elev_mean + 200) # make sure all values are above 0
+  dat$Mass = log10(dat$max.mass.g)
+
+  # Correlation among predictors:
+  cor(dat[,22:27])
+  
+  names(dat)[names(dat) == "reproduction"] = "ProbVivi"
+
+  # Choose relevant variables for analyses:
+  dat <- subset(dat, select = c(phylo_tree_names, ProbVivi, TMean, TSeas, PSeas, TInt, PInt, Elev, Mass))
+  names(dat)[names(dat) == "phylo_tree_names"] = "species"
+  rownames(dat)<-dat$species
+
+  tree=read.tree("squam_shl_new_Consensus_9755.tre") # Load phylogenetic tree
+  pruned.tree <- drop.tip(tree, tree$tip.label[na.omit(-match(dat$species, tree$tip.label))]) # Trim tree based on species name in the dataset
+```
+
+```{r phylogenetic path analyses}
+  library(phylopath)
+  
+  # Model set for phylogenetic path analysis:
+  m <- define_model_set(
+    direct = c(ProbVivi ∼ TMean + TSeas + PSeas +
+                  TInt + PInt + Elev + Mass),
+    indirect = c(ProbVivi ∼ TMean + TSeas + PSeas + 
+                  TInt + PInt + Elev + Mass,
+                  TMean ~ Elev,
+                  TSeas ~ TMean,
+                  PSeas ~ TSeas,
+                  TInt ~ TMean + TSeas + Elev,
+                  PInt ~ TSeas + PSeas + TInt
+            )
+        )
+
+  # Define binary variables as factors
+  dat$ProbVivi<-as.factor(dat$ProbVivi)
+  
+  # run model:
+  p <- phylo_path(m, dat, pruned.tree)
+  p
+  
+  # compare models (direct effects only vs. model including indirect effects):
+  s <- summary(p)
+  s
+  plot(s)
+  
+  # best model:
+  b <- best(p) # model coefficients and SE
+
+  # plot best model:
+  plot(b, colors = c("lightblue","pink"), curvature = 0, manual_layout = positions, show.legend = FALSE, 
+       text_size = 5,        
+       labels = c(ProbVivi = "Probability of\nbeing\nviviparous", TMean = "Temperature" , TSeas = "Temperature\nseasonality" , PSeas = "Precipitation\nseasonality" , TInt = "Interannual\ntemperature\nvariation" , PInt = "Interannual\nprecipitation\nvariation" , Elev = "Elevation" , Mass = "Body\nmass")) # the full name of the function is "phylopath::plot.fitted_DAG()"
+  
+```
+```{r Additional calculations}
+  # Calculate R-Squared for the main model:
+  rep_Fit<-phylolm::phyloglm(ProbVivi ∼ TMean + TSeas + PSeas + TInt + PInt + Elev + Mass,
+                    method="logistic_MPLE",dat=dat,phy=pruned.tree) 
+  rr2::R2(rep_Fit)
+  
+  b_ci <- best(p, boot = 1000) # 95% CI (lower and upper bounds)
+  z <- b$coef / b$se          # z value
+  pvalue <- 2*pnorm(abs(z), lower.tail=FALSE) # p-value
+
+  # Create estimate dataframe:
+  coef <- as.data.frame(b$coef)
+  se <- as.data.frame(b$se)
+  l_CI <- as.data.frame(b_ci$lower)
+  u_CI <- as.data.frame(b_ci$upper)
+  z <- as.data.frame(z)
+  pvalue <- as.data.frame(pvalue)
+  
+  coef_table <- data.frame("response" = NA, "correlate" = NA, "coef" = NA, "SE" = NA, "l_CI" = NA, "u_CI" = NA,"z" = NA, "p-value" = NA)
+  # Response:
+  coef_table[c(1:7),1] <- "ProbVivi"
+  coef_table[c(8:10),1] <- "PInt"
+  coef_table[11,1] <- "PSeas"
+  coef_table[c(12:14),1] <- "TInt"
+  coef_table[15,1] <- "TSeas"
+  coef_table[16,1] <- "TMean"
+  # Correlates:
+  coef_table[1,2] <- "Mass"
+  coef_table[c(2,12,16),2] <- "Elev"
+  coef_table[c(3,13,15),2] <- "TMean"
+  coef_table[c(4,8,11,14),2] <- "TSeas"
+  coef_table[c(5,9),2] <- "TInt"
+  coef_table[c(6,10),2] <- "PSeas"
+  coef_table[7,2] <- "PInt"
+
+  
+  fill_function <-  function(i, table){
+  coef_table[c(1:7),i] <- table[c(1:7),8]
+  coef_table[c(8:10),i] <- table[c(4:6),7]
+  coef_table[11,i] <- table[4,6]
+  coef_table[c(12:14),i] <- table[c(2:4),5]
+  coef_table[15,i] <- table[3,4]
+  coef_table[16,i] <- table[2,3]
+  assign("coef_table", coef_table, envir=globalenv())
+  }
+  
+  fill_function(3,coef)
+  fill_function(4,se)
+  fill_function(5,l_CI)
+  fill_function(6,u_CI)
+  fill_function(7,z)
+  fill_function(8,pvalue)
+  
+  coef_table$sig.level <- with(coef_table,ifelse(p.value>0.1," ", ifelse(p.value>0.05,".", ifelse(p.value>0.01,"*", ifelse(p.value>0.001,"**","***"))))) # significance level coding: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+  
+  coef_table
+  
+```
+
+```{r Plot comparison of estimates across species-level analyses}
+library(ggplot2)
+library(ggpubr)
+
+  data <- read.csv("species_level_estimates.csv")
+  data$predictor <- factor(data$predictor, levels = c("Annual precipitation seasonality", "Annual temperature seasonality", "Interannual precipitation variation", "Interannual temperature variation", "Elevation", "Mean annual temperature", "Body mass"))
+  
+  ggplot(data) + 
+    geom_point(stroke = 1, shape = 21, alpha=0.7, size=10, 
+               aes(x=estimate, y=Analysis, fill=predictor),color="black")  + 
+    ggtitle('Estimate') +
+    fill_palette(palette =c("#0077BB","#EE7733","#33BBEE","#CC3311","#009988","#EE3377","#BBBBBB")) + # fill colors
+    geom_vline(xintercept = 0, color = "red", lty=5) + # 0 vertical line
+    labs(y = "Analysis", x = "Estimate", title = NULL, fill = "Predictor") + 
+    scale_y_discrete(limits = c("Indomalaya", "Afrotropics", "Neotropics", "Nearctic", "Palearctic", "Australasia", "Global")) + # order of x bin labels
+    theme_minimal() +
+    theme(text = element_text(size=20, family="serif"), legend.position = "top", legend.title = element_blank())
+```
+
+
+### Assemblage-level path analyses
+Done globally and within biogeographical realms; 
+different datasets for imputation-including and non-imputed reproductive mode; and including/excluding species lacking elevational data (see below)
+```{r load and prepare data for analyses}
+#### Load dataset:
+  ## Including  species with observed or imputed elevation, and species with EOO ranges:
+  load("assemblage_level_data_imputed.RData")
+  # load("assemblage_level_data_non-imputed.RData")
+
+  ## Including only species with observed or imputed elevation:
+  # load("assemblage_level_data_imputed_ESH_only.RData")
+  # load("assemblage_level_data_non-imputed_ESH_only.RData")
+
+  ## Including only species with observed elevation:
+  # load("assemblage_level_data_imputed_obs_elev_only.RData")
+  # load("assemblage_level_data_non-imputed_obs_elev_only.RData")
+  
+  dat <- dat # dat = global dataset; dataAA = Australasian dataset; etc.
+  # dat = subset(dat,dat$land_type=="mainland") # Exclude islands
+
+  # Rescale the proportion of viviparity to range between 0-1 (Smithson & Verkuilen, 2006), before logit transformation:
+  dat$PVivi = with(dat,((proportion.viviparity*((length(proportion.viviparity)-1)) + 0.5)/length(proportion.viviparity))) 
+
+  # log10 data scaling:
+  dat$PVivi = log10(dat$PVivi/(1-dat$PVivi)) # logit transformation
+  dat$TMean = log10(dat$bio1 + 15) # make sure the value is above 0
+  dat$TSeas = log10(dat$bio4)
+  dat$PSeas = log10(dat$bio15)
+  dat$TInt = log10(dat$inter_temp_var)
+  dat$PInt = log10(dat$inter_prec_var)
+  dat$Elev = log10(dat$elev + 55) # make sure the value is above 0
+  
+  # Correlation among predictors:
+  cor(dat[,16:21])
+```
+
+```{r}
+#### Code for Calculating a Corrected SE using Moran's I in SEM by Jarrett E.K. Byrnes ####
+  # https://github.com/jebyrnes/spatial_correction_lavaan
+
+setwd("./spatial_correction_lavaan-master")
+source("./lavSpatialCorrect.R")
+source("./predict_lavaan.R") #prediction by regression functions
+
+library(lavaan)
+# A model where the proportion of viviparity is determined by 5 climatic variables & elevation, and some variables are correlated.
+rep_Model <- '
+  PVivi ~ TMean + TSeas + PSeas + TInt + PInt + Elev
+  TMean ~ Elev
+  TSeas ~ TMean
+  TInt ~ TMean + TSeas + Elev
+  PInt ~ PSeas + TMean
+'
+
+# Run a model without correcting for spatial autocorrelation first
+rep_Fit <- sem(rep_Model, data=dat, meanstructure=T)
+
+#Evaluate Spatial Residuals
+rep_Res <- as.data.frame(residuals_lavaan(rep_Fit))
+  
+# create a distance matrix
+library(ape)
+distMat <- as.matrix(dist(cbind(dat$long, dat$lat)))
+#invert this matrix for weights
+distsInv <- 1/distMat
+diag(distsInv) <- 0
+
+#calculate Moran's I for PVivi (proportion of viviparity)
+mi.PVivi <- Moran.I(c(rep_Res$PVivi), as.matrix(distsInv))
+mi.PVivi
+
+# Model summary:  
+summary(rep_Fit, standardized=T) # Summary of the non-spatially corrected model
+library(report) # a more detailed report:
+report_table(rep_Fit)
+
+lavInspect(rep_Fit, "rsquare")[1] # Variation in reproductive mode explained by the model.
+```
+```{r Correct SE, z and p values with lavSpatialCorrect function}
+# Correct SE, z and p values with lavSpatialCorrect function
+  spat_cor<-lavSpatialCorrect(rep_Fit, dat$long, dat$lat)
+  spat_cor$parameters$PVivi[,c(4:6)]
+
+# Standardize the spatially-corrected SE:
+  stand_coef <- parameterEstimates(rep_Fit, standardized=T)[1:13,c(1,3:4,11,5:7)] # extract parameter estimates (original and standardized)
+  names(stand_coef)[names(stand_coef) == "std.all"] <- "stand_est"
+  stand_coef[1:6,5:7] <- spat_cor$parameters$PVivi[1:6,c(4:6)] # extract spatially corrected SE,z & p values
+  stand_coef$stand_SE <- with(stand_coef, se*(stand_est/est)) # Standardize spatially corrected SE
+  stand_coef <- stand_coef[,c(1:4,8,5:7)] # reorder columns
+  names(stand_coef)[names(stand_coef) == "pvalue"] <- "p.value"
+  stand_coef$sig.level <- with(stand_coef,ifelse(p.value>0.1," ", ifelse(p.value>0.05,".", ifelse(p.value>0.01,"*", ifelse(p.value>0.001,"**","***"))))) # significance level coding: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+  stand_coef[,c(1:2,4:5,7:9)] # print standardized corrected estimates 
+
+  
+# Plot the model:
+library(semPlot) 
+semPlot <- semPaths(rep_Fit, what = c("stand"), style="lisrel", layout = 'circle2', rotation = 1, equalizeManifests = FALSE, 
+        whatLabels = "stand", edge.label.cex = 1.5, edge.label.color = "black", edge.width = 4, edge.label.position = 0.57, edge.label.bg = FALSE, asize = 2.5,
+        curve=3 , unCol = "black", posCol = "pink", negCol = "lightblue", fade = FALSE,
+        intercepts = FALSE, residuals=FALSE,
+        nCharNodes = 5, node.width = 1.5, label.prop = 2.2,
+        shapeMan = "rectangle", shapeLat = "ellipse", shapeInt = "triangle", 
+        sizeMan = 6, sizeInt = 3, sizeLat = 6,
+        nodeLabels = c(PVivi = "Proportion of\nviviparity", TMean = "Temperature" , TSeas = "Temperature\nseasonality" , TInt = "Interannual\ntemperature\nvariation" , PInt = "Interannual\nprecipitation\nvariation" , PSeas = "Precipitation\nseasonality" , Elev = "Elevation")
+) 
+
+```
+
+
+## Additional plots // Assemblage level
+```{r Assemblage level}
+library(ggplot2)
+library(hexbin)
+library(reshape2)
+library(ggpubr)
+
+data <- read.csv("assemblage_level_estimates.csv")
+data$predictor <- factor(data$predictor, levels = c("Annual precipitation seasonality", "Annual temperature seasonality", "Interannual precipitation variation", "Interannual temperature variation", "Elevation", "Mean annual temperature"))
+## Plot comparison of estimates across analyses ####
+  ggplot(data) + 
+    geom_point(stroke = 1, shape = 21, alpha=0.7, size=10, 
+               aes(x=estimate, y=Analysis, fill=predictor),color="black")  + 
+    ggtitle('Estimate') +
+    # fill_palette(palette =c("blue","yellow","green","orange","purple","red")) + # fill colors
+    fill_palette(palette =c("#0077BB","#EE7733","#33BBEE","#CC3311","#009988","#EE3377")) + # fill colors
+    geom_vline(xintercept = 0, color = "red", lty=5) + # 0 vertical line
+    labs(y = "Analysis", x = "Estimate", title = NULL, fill = "Predictor") + 
+    scale_y_discrete(limits = c("Indomalaya", "Afrotropics", "Neotropics", "Nearctic", "Palearctic", "Australasia", "Global")) + # order of x bin labels
+    theme_minimal() +
+    theme(text = element_text(size=20, family="serif"), legend.position = "top", legend.title = element_blank()) # font size and type
+  
+## Plot species richness against mean annual temperature, for both reproductive modes (linear regression): ####
+
+  long_table <- melt(dat[,c(1:3,7)], measure.vars = names(dat)[2:3])
+
+  ggplot(long_table, aes(x=bio1, y=value)) + 
+  geom_hex(bins=30, aes(y=value+1, fill = variable, alpha = log(..count..)), show.legend = FALSE) +
+  scale_fill_manual(labels = c("Oviparous","Viviparous"), values = c("orange","dodgerblue2"), name = "Reproductive mode") +
+  geom_smooth(method=lm, aes(y=(value+1), color = variable, fill = variable), size=2) + 
+  scale_colour_manual(labels = c("Oviparous","Viviparous"), values = c("darkorange","darkblue"), name = "Reproductive mode") +
+  ylim(c(0,NA)) +
+  labs(x ="Mean annual temperature (°C)", y = "Species richness") +
+  theme(legend.title = element_blank()) + 
+  theme_classic() + 
+  theme(text = element_text(size=16,family="serif"), legend.position=c(.2,.85)) + 
+  scale_y_continuous(trans='log10', breaks = c(1,2,6,11,26,51,101), labels = c(0,1,5,10,25,50,100))
+
+## Plot viviparous species richness against latitude (loess curve): ####
+ggplot(dat, aes(x=lat, y=vivi.richness)) + geom_smooth(method=loess, color="black") +
+  theme_minimal() + 
+  labs(x ="Latitude", y = "Viviparous richness") + 
+  scale_x_continuous(position = "top") + 
+  theme(text = element_text(size=20)) + 
+  coord_flip()
+
+## Plot viviparous species proportion against latitude (loess curve): ####
+ggplot(dat, aes(x=lat, y=proportion.viviparity)) + geom_smooth(method=loess, color="black") +
+  theme_minimal() + 
+  labs(x ="Latitude", y = "Viviparous proportion") + 
+  scale_x_continuous(position = "top") + 
+  theme(text = element_text(size=20)) + 
+  coord_flip()
+
+## Plot Mean annual temperature against latitude (linear regression): ####
+ggplot(dat, aes(y=bio1, x=abs(lat))) + 
+  geom_point(alpha = 1/10, size=0.8) + 
+  geom_smooth(method=lm) + 
+  labs(y ="Mean annual temperature", x = "Absolute latitude") +
+  theme_classic() + 
+  theme(text = element_text(size=20,family="serif"))
+```

@@ -1,0 +1,50 @@
+Analysis,predictor,estimate,sig.level
+Afrotropics,Annual precipitation seasonality,0.078840014,
+Afrotropics,Annual temperature seasonality,-0.002540275,
+Afrotropics,Body mass,0.183476664,
+Afrotropics,Elevation,-0.048560498,
+Afrotropics,Interannual precipitation variation,-0.028810092,
+Afrotropics,Interannual temperature variation,0.11009054,
+Afrotropics,Mean annual temperature,-0.249681549,
+Australasia,Annual precipitation seasonality,0.3142245,*
+Australasia,Annual temperature seasonality,-0.4558001,.
+Australasia,Body mass,0.2153788,
+Australasia,Elevation,-0.2166797,*
+Australasia,Interannual precipitation variation,0.2053366,
+Australasia,Interannual temperature variation,0.1971786,
+Australasia,Mean annual temperature,-0.7698973,**
+Global,Annual precipitation seasonality,0.07918187,**
+Global,Annual temperature seasonality,-0.08478154,*
+Global,Body mass,0.12034184,***
+Global,Elevation,-0.12072863,***
+Global,Interannual precipitation variation,0.05355409,.
+Global,Interannual temperature variation,-0.08968449,**
+Global,Mean annual temperature,-0.4575256,***
+Indomalaya,Annual precipitation seasonality,0.010420904,
+Indomalaya,Annual temperature seasonality,-0.042516979,
+Indomalaya,Body mass,0.030544229,
+Indomalaya,Elevation,-0.04986607,
+Indomalaya,Interannual precipitation variation,0.014346847,
+Indomalaya,Interannual temperature variation,0.004559297,
+Indomalaya,Mean annual temperature,-0.088308757,
+Nearctic,Annual precipitation seasonality,-0.006912705,
+Nearctic,Annual temperature seasonality,-0.036011447,
+Nearctic,Body mass,-0.000899791,
+Nearctic,Elevation,0.000473215,
+Nearctic,Interannual precipitation variation,-0.000199661,
+Nearctic,Interannual temperature variation,0.022169312,
+Nearctic,Mean annual temperature,-0.006840902,
+Neotropics,Annual precipitation seasonality,0.10738181,***
+Neotropics,Annual temperature seasonality,-0.01023402,
+Neotropics,Body mass,0.15488325,**
+Neotropics,Elevation,-0.2853128,***
+Neotropics,Interannual precipitation variation,0.07112887,*
+Neotropics,Interannual temperature variation,-0.09046291,**
+Neotropics,Mean annual temperature,-0.71394628,***
+Palearctic,Annual precipitation seasonality,-0.003127269,
+Palearctic,Annual temperature seasonality,0.026895096,
+Palearctic,Body mass,-0.138663508,
+Palearctic,Elevation,-0.107537306,
+Palearctic,Interannual precipitation variation,0.152401721,
+Palearctic,Interannual temperature variation,-0.141876159,
+Palearctic,Mean annual temperature,-0.722200983,**

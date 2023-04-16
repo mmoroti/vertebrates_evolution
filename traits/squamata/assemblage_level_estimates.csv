@@ -1,0 +1,43 @@
+Analysis,predictor,estimate,sig.level
+Afrotropics,Annual precipitation seasonality,-0.13,***
+Afrotropics,Annual temperature seasonality,-0.19,***
+Afrotropics,Elevation,0.362,***
+Afrotropics,Interannual precipitation variation,0.152,***
+Afrotropics,Interannual temperature variation,0.054,*
+Afrotropics,Mean annual temperature,-0.305,***
+Australasia,Annual precipitation seasonality,0.02,
+Australasia,Annual temperature seasonality,-0.006,
+Australasia,Elevation,0.02,
+Australasia,Interannual precipitation variation,-0.327,***
+Australasia,Interannual temperature variation,0.459,***
+Australasia,Mean annual temperature,-0.438,***
+Global,Annual precipitation seasonality,-0.07,***
+Global,Annual temperature seasonality,-0.097,***
+Global,Elevation,-0.003,
+Global,Interannual precipitation variation,-0.158,***
+Global,Interannual temperature variation,0.231,***
+Global,Mean annual temperature,-0.488,***
+Indomalaya,Annual precipitation seasonality,-0.009,
+Indomalaya,Annual temperature seasonality,0.145,***
+Indomalaya,Elevation,0.427,***
+Indomalaya,Interannual precipitation variation,-0.122,***
+Indomalaya,Interannual temperature variation,0.158,***
+Indomalaya,Mean annual temperature,0.354,***
+Nearctic,Annual precipitation seasonality,0.173,***
+Nearctic,Annual temperature seasonality,-0.162,***
+Nearctic,Elevation,-0.195,***
+Nearctic,Interannual precipitation variation,-0.171,***
+Nearctic,Interannual temperature variation,0.029,
+Nearctic,Mean annual temperature,-0.784,***
+Neotropics,Annual precipitation seasonality,0.024,
+Neotropics,Annual temperature seasonality,0.251,***
+Neotropics,Elevation,0.238,***
+Neotropics,Interannual precipitation variation,-0.377,***
+Neotropics,Interannual temperature variation,0.097,***
+Neotropics,Mean annual temperature,-0.038,
+Palearctic,Annual precipitation seasonality,-0.124,***
+Palearctic,Annual temperature seasonality,-0.214,***
+Palearctic,Elevation,-0.149,***
+Palearctic,Interannual precipitation variation,0.038,*
+Palearctic,Interannual temperature variation,0.123,***
+Palearctic,Mean annual temperature,-0.811,***
