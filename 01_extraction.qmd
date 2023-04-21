@@ -169,7 +169,6 @@ names(mammals_list_af) <- gsub("Lycalopex", "Pseudalopex", fixed=T, names(mammal
 
 ```
 
-
 ### 1.0. Obtain last common ancestor of tetrapods of Atlantic Forest
 
 #### 1.1.1. Amphibia
@@ -257,6 +256,8 @@ legend("topleft","common ancestor of\nAtlantic forest birds",
 ###
 tree_subset(mammals_phy_all, node=anc_mammals)
 ```
+
+
 
 ### 2.0 Match phylogeny with traits
 
@@ -485,11 +486,12 @@ lengths(mammals_traits_phy_without_na[4]) == nrow(mammals_traits_with_phylogeny_
 
 ### 3.0. Input traits
 
-Herein, we used species dataset (phy + traits) without missing data for calculing evolution model \
+Herein, we used species dataset (phy + traits) without missing data for calculing evolution model\
 
-#### 3.1. Select best fit evolution model 
+#### 3.1. Select best fit evolution model
 
 ##### 3.1.1. Amphibia
+
 ```{r}
 # Preparing the data
 anura_traits_with_phylogeny_without_na
@@ -515,6 +517,7 @@ fit_modified(amphibia_phy_rooted, size_amph)
 #------------------------------------------------------------#
 ```
 
+
 ##### 3.1.2. Mammals
 
 ```{r}
@@ -527,8 +530,8 @@ mammals_phy_ultra <- force.ultrametric(mammals_traits_phy_without_na)
 mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
 
 # Body models
-body_mammals_model <- fitContinuous(mammals_phy_rooted, mass_mammals)
-body_mammals_model
+#body_mammals_model <- fitContinuous(mammals_phy_rooted, mass_mammals)
+#body_mammals_model
 fit_modified(mammals_phy_rooted, mass_mammals)# white model
 
 #-- RESULTS -----------------------------------------------#
@@ -593,36 +596,64 @@ input_traits_mammals <- new_data_frame <- data.frame(
 
 
 ### 4.0. Save dataset
+
 ```{r}
+# TODO salvar os traits no lugar certo BAMM
+
 # Fully dataset
 # with all species and with imputed data for mammals and amphibians
 # amphibia
-amphibia_phy_ultra <- force.ultrametric(tr)
-amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
+is.ultrametric(amphibia_phy_rooted) # TRUE
 write.tree(amphibia_phy_rooted, "02_metrics/full_data/amphibia_fully.new") 
 
-write.table(input_traits_amp, "02_metrics/full_data/amphibia_traits_fully.txt",quote = FALSE, col.names = FALSE) 
+write.table(input_traits_amp, "02_metrics/BAMM/amphibia/amphibia_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
 
-# squamata
-write.tree(squamata_traits_phy, "02_metrics/full_data/squamata_fully.new") 
-write.table(squamata_traits_with_phylogeny, "02_metrics/full_data/squamata_traits_fully.txt") 
+#--- Squamata
+# tree
+is.ultrametric(squamata_traits_phy) # FALSE
+# transform to fix error script
+squamata_phy_ultra <- force.ultrametric(squamata_traits_phy)
+squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
+write.tree(squamata_phy_rooted, "02_metrics/full_data/squamata_fully.new") 
 
-# birds
-write.tree(birds_traits_phy, "02_metrics/full_data/birds_fully.new") 
-write.table(birds_traits_select, "02_metrics/full_data/birds_traits_fully.txt") 
+# traits
+write.table(squamata_traits_with_phylogeny, "02_metrics/BAMM/squamata/squamata_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
 
-# mammals
-write.tree(mammals_traits_phy, "02_metrics/full_data/mammals_fully.new") 
-write.table(input_traits_mammals, "02_metrics/full_data/mammals_traits_fully.txt") 
+#--- Birds
+# tree
+is.ultrametric(birds_traits_phy) # FALSE
+# transform to fix error script
+birds_phy_ultra <- force.ultrametric(birds_traits_phy)
+birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
+write.tree(birds_phy_rooted, "02_metrics/full_data/birds_fully.new") 
+
+# traits
+write.table(birds_traits_select, "02_metrics/BAMM/birds/birds_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
+
+#--- Mammals
+# tree complete
+is.ultrametric(mammals_phy_rooted) # TRUE
+is.rooted(mammals_phy_rooted) # TRUE
+write.tree(mammals_phy_rooted, "02_metrics/full_data/mammals_fully.new") 
+
+# traits
+write.table(input_traits_mammals, "02_metrics/BAMM/mammals/mammals_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
+#---
 
 # Harmonized dataset
-# with excluded species with NA's in body size/body mass
-# amphibia
-write.tree(anura_traits_phy_without_na, "02_metrics/harmonized_data/amphibia_harm.tre") 
-write.table(anura_traits_with_phylogeny_without_na, "02_metrics/harmonized_data/amphibia_traits_harm.txt") 
-
-# mammals
-write.tree(mammals_traits_phy_without_na, "02_metrics/harmonized_data/mammals_harm.tre") 
-write.table(mammals_traits_with_phylogeny_without_na, "02_metrics/harmonized_data/mammals_traits_harm.txt") 
+# With excluded species with NA's in body size/body mass
+#--- Amphibia
+# tree
+anura_phy_ultra_without_na <- force.ultrametric(anura_traits_phy_without_na)
+anura_phy_rooted_without_na <- ape::multi2di(anura_phy_ultra_without_na)
+write.tree(anura_phy_rooted_without_na, "02_metrics/harmonized_data/amphibia_harm.new") 
+# traits to BAMM folder
+write.table(anura_traits_with_phylogeny_without_na, "02_metrics/BAMM/amphibia_harm/amphibia_traits_harm.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
+#--- Mammals
+# tree
+mammals_phy_ultra_without_na <- force.ultrametric(mammals_traits_phy_without_na)
+mammals_phy_rooted_without_na <- ape::multi2di(mammals_phy_ultra_without_na)
+write.tree(mammals_phy_rooted_without_na, "02_metrics/harmonized_data/mammals_harm.new") 
+# traits to BAMM folder
+write.table(mammals_traits_with_phylogeny_without_na, "02_metrics/BAMM/mammals_harm/mammals_traits_harm.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
 ```
-

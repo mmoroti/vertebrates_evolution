@@ -14,6 +14,7 @@ library(letsR) # spatial data package
 library(rgdal) # spatial data package
 library(sf) # spatial data package
 library(BAMMtools) # trait evolution rate
+library(coda) # check mcmc run convergence
 ```
 
 ### 0.1. Functions
@@ -29,9 +30,7 @@ library(BAMMtools) # trait evolution rate
 ```{r}
 ###--- Amphibia
 anura_traits_full <- read.table("full_data/amphibia_traits_fully.txt")
-
 anura_traits_harm <- read.table("harmonized_data/amphibia_traits_harm.txt")
-?read.table
 ###--- Squamata
 squamata_traits_full <- read.table("full_data/squamata_traits_fully.txt")
 
@@ -45,20 +44,28 @@ mammals_traits_harm <- read.table("harmonized_data/mammals_traits_harm.txt")
 
 #### 0.2.2. Phylogenetic data
 ```{r}
+# note: ler as árvores pós script fix_error (min branch lenght negative and zero values)
 ###--- Amphibia
-anura_phy_full <- read.tree("full_data/amphibia_fully.new_minBL_noNeg.newick")
+anura_phy_full <- read.tree("full_data/amphibia_fully.new_noNeg_minBL.newick")
+is.ultrametric(anura_phy_full) # FALSE
 
-anura_phy_harm <- read.tree("harmonized_data/amphibia_harm.tre")
+anura_phy_harm <- read.tree("harmonized_data/amphibia_harm.new_noNeg_minBL.newick")
+is.ultrametric(anura_phy_harm) # FALSE
 
 ###--- Squamata
-squamata_phy_full <- read.tree("full_data/squamata_fully.tre")
+squamata_phy_full <- read.tree("full_data/squamata_fully.new_noNeg_minBL.newick")
+is.ultrametric(squamata_phy_full) # FALSE
 
 ###--- Birds
-birds_phy_full <- read.tree("full_data/birds_fully.tre")
+birds_phy_full <- read.tree("full_data/birds_fully.new_noNeg_minBL.newick")
+is.ultrametric(birds_phy_full) # FALSE
 
 ###--- Mammals
-mammals_phy_full <- read.tree("full_data/mammals_fully.tre")
-mammals_phy_harm <- read.tree("harmonized_data/mammals_harm.tre")
+mammals_phy_full <- read.tree("full_data/mammals_fully.new_noNeg.newick")
+is.ultrametric(mammals_phy_full) # TRUE
+
+mammals_phy_harm <- read.tree("harmonized_data/mammals_harm.new_noNeg.newick")
+is.ultrametric(mammals_phy_harm) # TRUE
 ```
 
 #### 0.2.3. Climate data
@@ -71,60 +78,350 @@ mammals_phy_harm <- read.tree("harmonized_data/mammals_harm.tre")
 ```
 
 
+
 ### 1.0. Data processing for BAMM analysis
+
+### 1.1. Complete dataset
+#### 1.0.1. Frogs
 ```{r}
-# TODO arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
-# TODO usar o setBAMMprior para achar os valores de priors
+# preparing data for setBAMMpriors
+svl_amphibia <- as.numeric(anura_traits_full$V2)
+names(svl_amphibia) <- anura_traits_full$V1
 
-# testando com o exemplo
-getwd()
-fish_phy <- read.tree("fishtreeFinalPL_Feb8.tre")
-fish_phy
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = anura_phy_full, traits = svl_amphibia)
 
-fish_traits <- read.table("fishmorph.txt", h=F)
-nrow(fish_traits)
-
-setBAMMpriors(phy = amphibia_phy_rooted, traits = input_traits_amp)
-
-anura_phy_full <- read.tree("amphibia_fully.new_noNeg_minBL.newick")
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
-amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
-write.tree(amphibia_phy_ultra, "amphibia_fully_teste.new")
+write.tree(amphibia_phy_ultra, "BAMM/amphibia/amphibia_fully_bamm.new")
 
 getwd()
-generateControlFile(file = 'controlfile.txt', type = 'trait', params = list(
-    treefile = 'amphibia_fully_teste.new',
+generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'trait', params = list(
+    treefile = 'amphibia_fully_bamm.new',
     traitfile='amphibia_traits_fully.txt',
-    numberOfGenerations = '1000000',
+    numberOfGenerations = '10000',
     overwrite = '1',
     betaInitPrior = '407.026502174263',
     betaShiftPrior = '0.0036834541498432',
     useObservedMinMaxAsTraitPriors = '1',
     expectedNumberOfShifts = '1.0'))
-### 
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("02_metrics/BAMM/amphibia/mcmc_out.txt",sep=',', header=T)
+head(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+```
+
+```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
+events.amphibia <- read.table("BAMM/amphibia/event_data.txt", sep=',', header=T)
+amphibia_phy_rooted <- ape::multi2di(anura_phy_full)
 
-events.amphibia <- read.table("event_data.txt", sep=',', header=T)
-edata <- getEventData(amphibia_phy_rooted, events.amphibia, burnin=0.25, type='trait')
+edata <- getEventData(amphibia_phy_rooted, events.amphibia, burnin=0.01, type='trait')
 plotRateThroughTime(edata, ratetype="auto", smooth=TRUE)
 
-trait_tree <- getMeanBranchLengthTree(edata, rate = "trait")
-plot(trait_tree$phy, show.tip.label=FALSE,type="fan")
-teste <- trait_tree$phy
-class(teste)
+mean_anura <- getTipRates(edata, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
 
-# explore
-rtt <- getRateThroughTimeMatrix(edata)
-meanTraitRate <- colMeans(rtt$beta)
-View(meanTraitRate)
-plot(meanTraitRate ~ rtt$times)
-
-# Example
-data(whales)
-data(events.whales)
-ed <- getEventData(whales, events.whales, burnin=0.1, nsamples=500)
-ed2 <- subsetEventData(ed, index = 1:20)
-ratetree <- getMeanBranchLengthTree(ed2, rate='speciation')
-plot(ratetree$phy, show.tip.label=FALSE)
+plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
+
+#### 1.0.2. Squamatas
+```{r}
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+squamata_phy_ultra <- force.ultrametric(squamata_phy_full)
+write.tree(squamata_phy_ultra, "BAMM/squamata/squamata_fully_bamm.new")
+
+# preparing traits
+# Squamata
+svl_squamata <- as.numeric(squamata_traits_full$V2)
+names(svl_squamata) <- squamata_traits_full$V1
+
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = squamata_phy_ultra, traits = svl_squamata)
+
+getwd()
+generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'trait', params = list(
+    treefile = 'squamata_fully_bamm.new',
+    traitfile='squamata_traits_fully.txt',
+    numberOfGenerations = '10000',
+    overwrite = '1',
+    betaInitPrior = '2.28904043293718e-07',
+    betaShiftPrior = '0.0059901140275358',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("mcmc_out.txt",sep=',', header=T)
+tail(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+# Also, remember that comments in R are lines that start with
+#     a pound sign. We'll occasionally use them here.
+#     R will not execute these lines - they are only for reference!
+```
+
+Exploring BAMMTools
+```{r}
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+events_squamata <- read.table("BAMM/squamata/event_data.txt", sep=',', header=T)
+squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
+
+# plot rate through time
+edata_squamata <- getEventData(squamata_phy_rooted, events_squamata, burnin=0.25, type='trait')
+plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
+
+# trait evolution rate per species
+mean_squamata <- getTipRates(edata_squamata, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
+# plot
+plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
+```
+
+#### 1.0.3. Birds
+```{r}
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+birds_phy_ultra <- force.ultrametric(birds_phy_full)
+write.tree(birds_phy_ultra, "BAMM/birds/birds_fully_bamm.new")
+
+# preparing traits
+# Squamata
+mass_birds <- as.numeric(birds_traits_full$Mass)
+names(mass_birds) <- birds_traits_full$Species3
+
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = birds_phy_ultra, traits = mass_birds)
+
+generateControlFile(file = 'BAMM/birds/controlfile_birds.txt', type = 'trait', params = list(
+    treefile = 'birds_fully_bamm.new',
+    traitfile='birds_traits_fully.txt',
+    numberOfGenerations = '10000',
+    overwrite = '1',
+    betaInitPrior = '1.28009136772299e-05',
+    betaShiftPrior = '0.0113668918251832',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
+tail(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+# Also, remember that comments in R are lines that start with
+#     a pound sign. We'll occasionally use them here.
+#     R will not execute these lines - they are only for reference!
+```
+
+```{r} 
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+events.birds <- read.table("BAMM/birds/event_data.txt", sep=',', header=T)
+birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
+edata_birds <- getEventData(birds_phy_rooted, events.birds, burnin=0.01, type='trait')
+plotRateThroughTime(edata_birds, ratetype="auto", smooth=TRUE)
+
+mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
+
+plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
+```
+
+#### 1.0.4. Mammals
+```{r}
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+mammals_phy_ultra <- force.ultrametric(mammals_phy_full)
+write.tree(mammals_phy_ultra, "BAMM/mammals/mammals_fully_bamm.new")
+
+# preparing traits
+# Squamata
+mass_mammals <- as.numeric(mammals_traits_full$V2)
+names(mass_mammals) <- mammals_traits_full$V1
+
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = mammals_phy_ultra, traits = mass_mammals)
+
+generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait', params = list(
+    treefile = 'mammals_fully_bamm.new',
+    traitfile='mammals_traits_fully.txt',
+    numberOfGenerations = '100000',
+    overwrite = '1',
+    betaInitPrior = '1.28009136772299e-05',
+    betaShiftPrior = '0.0113668918251832',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
+tail(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+# Also, remember that comments in R are lines that start with
+#     a pound sign. We'll occasionally use them here.
+#     R will not execute these lines - they are only for reference!
+```
+
+BAMMTools exploring
+```{r}
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+events.mammals <- read.table("BAMM/mammals/event_data.txt", sep=',', header=T)
+mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
+edata_mammals <- getEventData(mammals_phy_rooted, events.mammals, burnin=0.01, type='trait')
+plotRateThroughTime(edata_mammals, ratetype="auto", smooth=TRUE)
+
+mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
+
+plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
+```
+
+
+
+### 1.2 Harmonized dataset
+
+```{r} 
+#TODO aqui precisamos revisar com o base de traits harmonizadas
+```
+
+#### 1.0.1. Frogs
+```{r}
+# preparing data for setBAMMpriors
+svl_amphibia_harm <- as.numeric(anura_traits_harm$V2)
+names(svl_amphibia_harm) <- anura_traits_harm$V1
+
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = anura_phy_harm, traits = svl_amphibia_harm)
+
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+amphibia_phy_ultra_harm <- force.ultrametric(anura_phy_harm)
+write.tree(amphibia_phy_ultra_harm, "BAMM/amphibia_harm/amphibia_harm_bamm.new")
+
+getwd()
+generateControlFile(file = 'BAMM/amphibia_harm/controlfile_amphibia.txt', type = 'trait', params = list(
+    treefile = 'amphibia_harm_bamm.new',
+    traitfile='amphibia_traits_harm.txt',
+    numberOfGenerations = '10000',
+    overwrite = '1',
+    betaInitPrior = '407.026502174263',
+    betaShiftPrior = '0.0036834541498432',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("02_metrics/BAMM/amphibia_harm/mcmc_out.txt",sep=',', header=T)
+head(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+```
+
+```{r}
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+events.amphibia <- read.table("BAMM/amphibia_harm/event_data.txt", sep=',', header=T)
+amphibia_phy_rooted <- ape::multi2di(anura_phy_full)
+
+edata <- getEventData(amphibia_phy_rooted, events.amphibia, burnin=0.01, type='trait')
+plotRateThroughTime(edata, ratetype="auto", smooth=TRUE)
+
+mean_anura <- getTipRates(edata, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
+
+plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
+```
+
+#### 1.0.2. Mammals
+```{r}
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+mammals_phy_ultra_harm <- force.ultrametric(mammals_phy_harm)
+write.tree(mammals_phy_ultra_harm, "BAMM/mammals_harm/mammals_harm_bamm.new")
+
+# preparing traits
+# Squamata
+mass_mammals_harm <- as.numeric(mammals_traits_harm$V2)
+names(mass_mammals_harm) <- mammals_traits_harm$V1
+
+# setBAMMprior para achar os valores de priors
+setBAMMpriors(phy = mammals_phy_ultra_harm, traits = mass_mammals_harm)
+
+generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = 'trait', params = list(
+    treefile = 'mammals_harm_bamm.new',
+    traitfile='mammals_traits_harm.txt',
+    numberOfGenerations = '10000',
+    overwrite = '1',
+    betaInitPrior = '1.28009136772299e-05',
+    betaShiftPrior = '0.0113668918251832',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+```
+
+Check MCMC run convergence
+```{r}
+mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
+tail(mcmcout)
+plot(mcmcout$logLik ~ mcmcout$generation)
+
+burnstart <- floor(0.1 * nrow(mcmcout))
+postburn <- mcmcout[burnstart:nrow(mcmcout), ]
+
+effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$logLik)
+# Also, remember that comments in R are lines that start with
+#     a pound sign. We'll occasionally use them here.
+#     R will not execute these lines - they are only for reference!
+```
+
+BAMMTools exploring
+```{r}
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+events.mammals <- read.table("BAMM/mammals/event_data.txt", sep=',', header=T)
+mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
+edata_mammals <- getEventData(mammals_phy_rooted, events.mammals, burnin=0.01, type='trait')
+plotRateThroughTime(edata_mammals, ratetype="auto", smooth=TRUE)
+
+mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
+                       statistic = 'mean')$beta.avg
+
+plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
+```
+
+### 2.0. Lets add var
+### 3.0 Save data
