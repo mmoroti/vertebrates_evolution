@@ -308,11 +308,8 @@ plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 
 
 
-### 1.2 Harmonized dataset
 
-```{r} 
-#TODO aqui precisamos revisar com o base de traits harmonizadas
-```
+### 1.2 Harmonized dataset
 
 #### 1.0.1. Frogs
 ```{r}
@@ -422,6 +419,8 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
+
+
 
 ### 2.0. Lets add var
 ### 3.0 Save data

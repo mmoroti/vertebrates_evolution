@@ -6,3 +6,6 @@
 acer-branch
 /#ORGANIZAR
 /shapefiles_ranges
+*02_metrics/src
+*02_metrics/full_data/src/
+*02_metrics/full_data/vccorlib120.dll
