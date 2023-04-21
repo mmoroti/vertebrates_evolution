@@ -5,23 +5,126 @@ format: html
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+### 0.0. Libraries
 
 ```{r}
-1 + 1
+library(visdat) # missing data check
+library(tidyverse) # data science handling
+library(letsR) # spatial data package
+library(rgdal) # spatial data package
+library(sf) # spatial data package
+library(BAMMtools) # trait evolution rate
 ```
 
-You can add options to executable code like this
+### 0.1. Functions
 
 ```{r}
-#| echo: false
-2 * 2
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+### 0.2. Load data
+
+#### 0.2.1. Trait data
+
+```{r}
+###--- Amphibia
+anura_traits_full <- read.table("full_data/amphibia_traits_fully.txt")
+
+anura_traits_harm <- read.table("harmonized_data/amphibia_traits_harm.txt")
+?read.table
+###--- Squamata
+squamata_traits_full <- read.table("full_data/squamata_traits_fully.txt")
+
+###--- Birds
+birds_traits_full <- read.table("full_data/birds_traits_fully.txt")
+
+###--- Mammals
+mammals_traits_full <- read.table("full_data/mammals_traits_fully.txt")
+mammals_traits_harm <- read.table("harmonized_data/mammals_traits_harm.txt")
+```
+
+#### 0.2.2. Phylogenetic data
+```{r}
+###--- Amphibia
+anura_phy_full <- read.tree("full_data/amphibia_fully.new_minBL_noNeg.newick")
+
+anura_phy_harm <- read.tree("harmonized_data/amphibia_harm.tre")
+
+###--- Squamata
+squamata_phy_full <- read.tree("full_data/squamata_fully.tre")
+
+###--- Birds
+birds_phy_full <- read.tree("full_data/birds_fully.tre")
+
+###--- Mammals
+mammals_phy_full <- read.tree("full_data/mammals_fully.tre")
+mammals_phy_harm <- read.tree("harmonized_data/mammals_harm.tre")
+```
+
+#### 0.2.3. Climate data
+```{r}
+```
+
+#### 0.2.4. Shapefile data
+
+```{r}
+```
+
+
+### 1.0. Data processing for BAMM analysis
+```{r}
+# TODO arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+# TODO usar o setBAMMprior para achar os valores de priors
+
+# testando com o exemplo
+getwd()
+fish_phy <- read.tree("fishtreeFinalPL_Feb8.tre")
+fish_phy
+
+fish_traits <- read.table("fishmorph.txt", h=F)
+nrow(fish_traits)
+
+setBAMMpriors(phy = amphibia_phy_rooted, traits = input_traits_amp)
+
+anura_phy_full <- read.tree("amphibia_fully.new_noNeg_minBL.newick")
+amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
+amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
+write.tree(amphibia_phy_ultra, "amphibia_fully_teste.new")
+
+getwd()
+generateControlFile(file = 'controlfile.txt', type = 'trait', params = list(
+    treefile = 'amphibia_fully_teste.new',
+    traitfile='amphibia_traits_fully.txt',
+    numberOfGenerations = '1000000',
+    overwrite = '1',
+    betaInitPrior = '407.026502174263',
+    betaShiftPrior = '0.0036834541498432',
+    useObservedMinMaxAsTraitPriors = '1',
+    expectedNumberOfShifts = '1.0'))
+### 
+# Tue Apr 18 19:07:03 2023 ------------------------------
+# BAMMTools
+
+events.amphibia <- read.table("event_data.txt", sep=',', header=T)
+edata <- getEventData(amphibia_phy_rooted, events.amphibia, burnin=0.25, type='trait')
+plotRateThroughTime(edata, ratetype="auto", smooth=TRUE)
+
+trait_tree <- getMeanBranchLengthTree(edata, rate = "trait")
+plot(trait_tree$phy, show.tip.label=FALSE,type="fan")
+teste <- trait_tree$phy
+class(teste)
+
+# explore
+rtt <- getRateThroughTimeMatrix(edata)
+meanTraitRate <- colMeans(rtt$beta)
+View(meanTraitRate)
+plot(meanTraitRate ~ rtt$times)
+
+# Example
+data(whales)
+data(events.whales)
+ed <- getEventData(whales, events.whales, burnin=0.1, nsamples=500)
+ed2 <- subsetEventData(ed, index = 1:20)
+ratetree <- getMeanBranchLengthTree(ed2, rate='speciation')
+plot(ratetree$phy, show.tip.label=FALSE)
+```

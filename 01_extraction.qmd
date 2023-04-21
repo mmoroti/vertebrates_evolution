@@ -169,11 +169,6 @@ names(mammals_list_af) <- gsub("Lycalopex", "Pseudalopex", fixed=T, names(mammal
 
 ```
 
-#### 0.2.4. Climate data
-
-```{r}
-```
-
 
 ### 1.0. Obtain last common ancestor of tetrapods of Atlantic Forest
 
@@ -340,7 +335,7 @@ names(names_phy) = "Comb_sciname"
 
 # join with names present in phylogeny
 squamata_traits_with_phylogeny <- left_join(names_phy, squamata_traits_select, by = "Comb_sciname")
-View(squamata_traits_with_phylogeny)
+#View(squamata_traits_with_phylogeny)
 # if TRUE, the dataset is done:
 lengths(squamata_traits_phy[4]) == nrow(squamata_traits_with_phylogeny) # 6453 spp with missing data
 ```
@@ -348,7 +343,6 @@ lengths(squamata_traits_phy[4]) == nrow(squamata_traits_with_phylogeny) # 6453 s
 ##### 2.1.3. Birds
 
 ```{r}
-View(birds_traits_all)
 birds_traits_all$Species3
 
 birds_traits_select <- as_tibble(birds_traits_all) %>%
@@ -491,7 +485,9 @@ lengths(mammals_traits_phy_without_na[4]) == nrow(mammals_traits_with_phylogeny_
 
 ### 3.0. Input traits
 
-Herein, we used species dataset (phy + traits) without missing data for calculing evolution model \#### 3.1. Select best fit evolution model \
+Herein, we used species dataset (phy + traits) without missing data for calculing evolution model \
+
+#### 3.1. Select best fit evolution model 
 
 ##### 3.1.1. Amphibia
 ```{r}
@@ -563,8 +559,10 @@ p_OU <- phylopars(trait_data = anura_traits_input, tree = amphibia_phy_rooted,  
 #p_OU$anc_var[1:20,] # Variances for each estimate
 
 input_traits_amp <- p_OU$anc_recon[1:6453,]
-input_traits_amp <- as.data.frame(input_traits_amp) %>%
-  rename(body_size_log = input_traits_amp)
+input_traits_amp <- data.frame(body_size_log = input_traits_amp)
+input_traits_amp <- new_data_frame <- data.frame(
+  species = rownames(input_traits_amp),
+  body_size_log = input_traits_amp$body_size_log)
 ```
 
 ##### 3.2.2. Mammals
@@ -581,9 +579,16 @@ p_OU_mammals <- phylopars(trait_data = mammals_traits_input, tree = mammals_phy_
 
 #p_OU$anc_recon[1:20,] # Data with imputed species means
 #p_OU$anc_var[1:20,] # Variances for each estimate
-input_traits_mammals <- p_OU$anc_recon[1:3853,]
-input_traits_mammals <- as.data.frame(input_traits_mammals) %>%
-  rename(body_mass_log = input_traits_mammals)
+input_traits_mammals <- p_OU_mammals$anc_recon[1:3853,]
+
+#input_traits_mammals <- as.data.frame(input_traits_mammals) %>%
+  #rename(body_mass_log = input_traits_mammals)
+input_traits_mammals <- data.frame(body_mass_log = input_traits_mammals)
+
+input_traits_mammals <- new_data_frame <- data.frame(
+  species = rownames(input_traits_mammals),
+  body_mass_log = input_traits_mammals$body_mass_log)
+
 ```
 
 
@@ -592,19 +597,22 @@ input_traits_mammals <- as.data.frame(input_traits_mammals) %>%
 # Fully dataset
 # with all species and with imputed data for mammals and amphibians
 # amphibia
-write.tree(anura_traits_phy, "02_metrics/full_data/amphibia_fully.tre") 
-write.table(input_traits_amp, "02_metrics/full_data/amphibia_traits_fully.txt") 
+amphibia_phy_ultra <- force.ultrametric(tr)
+amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
+write.tree(amphibia_phy_rooted, "02_metrics/full_data/amphibia_fully.new") 
+
+write.table(input_traits_amp, "02_metrics/full_data/amphibia_traits_fully.txt",quote = FALSE, col.names = FALSE) 
 
 # squamata
-write.tree(squamata_traits_phy, "02_metrics/full_data/squamata_fully.tre") 
+write.tree(squamata_traits_phy, "02_metrics/full_data/squamata_fully.new") 
 write.table(squamata_traits_with_phylogeny, "02_metrics/full_data/squamata_traits_fully.txt") 
 
 # birds
-write.tree(birds_traits_phy, "02_metrics/full_data/birds_fully.tre") 
+write.tree(birds_traits_phy, "02_metrics/full_data/birds_fully.new") 
 write.table(birds_traits_select, "02_metrics/full_data/birds_traits_fully.txt") 
 
 # mammals
-write.tree(mammals_traits_phy, "02_metrics/full_data/mammals_fully.tre") 
+write.tree(mammals_traits_phy, "02_metrics/full_data/mammals_fully.new") 
 write.table(input_traits_mammals, "02_metrics/full_data/mammals_traits_fully.txt") 
 
 # Harmonized dataset
