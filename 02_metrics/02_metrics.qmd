@@ -13,6 +13,7 @@ library(tidyverse) # data science handling
 library(letsR) # spatial data package
 library(rgdal) # spatial data package
 library(sf) # spatial data package
+library(phytools) # phylogenetic data
 library(BAMMtools) # trait evolution rate
 library(coda) # check mcmc run convergence
 ```
@@ -70,6 +71,54 @@ is.ultrametric(mammals_phy_harm) # TRUE
 
 #### 0.2.3. Climate data
 ```{r}
+# PALEO-PGEM-Series - Barreto et al., 2023
+bio01_past <- read.table("climate_data/bio1_mean.txt", header = TRUE)
+bio04_past <- read.table("climate_data/bio4_mean.txt", header = TRUE)
+bio07_past <- read.table("climate_data/bio7_mean.txt", header = TRUE)
+bio11_past <- read.table("climate_data/bio11_mean.txt", header = TRUE)
+bio15_past <- read.table("climate_data/bio15_mean.txt", header = TRUE)
+bio17_past <- read.table("climate_data/bio17_mean.txt", header = TRUE)
+
+# summarize paleo-pgem bioclimate variables
+bio01_past_mean <- bio01_past %>%
+    mutate_at(c(names(bio01_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio01_past)/5001) %>%
+    select(Long, Lat, T_mean)
+
+bio04_past_mean <- bio04_past %>%
+    mutate_at(c(names(bio04_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio04_past)/5001) %>%
+    select(Long, Lat, T_mean)
+
+bio07_past_mean <- bio07_past %>%
+    mutate_at(c(names(bio07_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio07_past)/5001) %>%
+    select(Long, Lat, T_mean)
+
+bio11_past_mean <- bio11_past %>%
+    mutate_at(c(names(bio11_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio11_past)/5001) %>%
+    select(Long, Lat, T_mean)
+
+bio15_past_mean <- bio15_past %>%
+    mutate_at(c(names(bio15_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio15_past)/5001) %>%
+    select(Long, Lat, T_mean)
+
+bio17_past_mean <- bio17_past %>%
+    mutate_at(c(names(bio17_past)), as.numeric) %>%
+    mutate(T_mean = rowSums(bio17_past)/5001) %>%
+    select(Long, Lat, T_mean)
+```
+
+```{r}
+# convert to raster file
+r <- raster(extent(min(bio01_past_mean$Long), max(bio01_past_mean$Long), min(bio01_past_mean$Lat), max(bio01_past_mean$Lat)), 
+            resolution = 1, 
+            crs = "+proj=longlat +datum=WGS84")
+
+r <- rasterize(bio01_past_mean[,1:2], r, bio01_past_mean[,3])
+plot(r)
 ```
 
 #### 0.2.4. Shapefile data
@@ -77,62 +126,61 @@ is.ultrametric(mammals_phy_harm) # TRUE
 ```{r}
 ```
 
-
-
 ### 1.0. Data processing for BAMM analysis
 
 ### 1.1. Complete dataset
 #### 1.0.1. Frogs
 ```{r}
+# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
+amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
+
+write.tree(amphibia_phy_ultra, "BAMM/amphibia/amphibia_fully_bamm.new")
+
 # preparing data for setBAMMpriors
 svl_amphibia <- as.numeric(anura_traits_full$V2)
 names(svl_amphibia) <- anura_traits_full$V1
 
 # setBAMMprior para achar os valores de priors
-setBAMMpriors(phy = anura_phy_full, traits = svl_amphibia)
+#setBAMMpriors(phy = anura_phy_full, traits = svl_amphibia)
+priors <- BAMMtools::setBAMMpriors(phy = anura_phy_full, total.taxa = nrow(anura_traits_full), traits = svl_amphibia, outfile = NULL) 
 
-# arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
-amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
-write.tree(amphibia_phy_ultra, "BAMM/amphibia/amphibia_fully_bamm.new")
-
-getwd()
 generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'trait', params = list(
     treefile = 'amphibia_fully_bamm.new',
     traitfile='amphibia_traits_fully.txt',
-    numberOfGenerations = '10000',
+    numberOfGenerations = '30000000',
     overwrite = '1',
-    betaInitPrior = '407.026502174263',
-    betaShiftPrior = '0.0036834541498432',
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 ```
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("02_metrics/BAMM/amphibia/mcmc_out.txt",sep=',', header=T)
-head(mcmcout)
+mcmcout <- read.table("BAMM/amphibia/mcmc_out.txt",sep=',', header=T)
+tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
-burnstart <- floor(0.1 * nrow(mcmcout))
+burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
-
-effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$N_shifts) # must be at least 200
 effectiveSize(postburn$logLik)
 ```
 
+Using BAMM tools to retrieve trait evolution rate per tip
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events.amphibia <- read.table("BAMM/amphibia/event_data.txt", sep=',', header=T)
-amphibia_phy_rooted <- ape::multi2di(anura_phy_full)
+#events.amphibia <- read.table("BAMM/amphibia/event_data.txt", sep=",", header=T)
+amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
 
-edata <- getEventData(amphibia_phy_rooted, events.amphibia, burnin=0.01, type='trait')
-plotRateThroughTime(edata, ratetype="auto", smooth=TRUE)
+edata_amphibia <- getEventData(amphibia_phy_rooted, "BAMM/amphibia/event_data.txt", burnin=0.25, type='trait')
 
-mean_anura <- getTipRates(edata, returnNetDiv = FALSE,
-                       statistic = 'mean')$beta.avg
+#plotRateThroughTime(edata_amphibia, ratetype="auto", smooth=TRUE)
 
-plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
+mean_anura <- getTipRates(edata_amphibia, statistic = 'mean')$beta.avg
+
+#plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
 #### 1.0.2. Squamatas
@@ -147,23 +195,23 @@ svl_squamata <- as.numeric(squamata_traits_full$V2)
 names(svl_squamata) <- squamata_traits_full$V1
 
 # setBAMMprior para achar os valores de priors
-setBAMMpriors(phy = squamata_phy_ultra, traits = svl_squamata)
+priors <- setBAMMpriors(phy = squamata_phy_ultra, traits = svl_squamata, outfile = NULL)
 
 getwd()
 generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'trait', params = list(
     treefile = 'squamata_fully_bamm.new',
     traitfile='squamata_traits_fully.txt',
-    numberOfGenerations = '10000',
+    numberOfGenerations = '15000000',
     overwrite = '1',
-    betaInitPrior = '2.28904043293718e-07',
-    betaShiftPrior = '0.0059901140275358',
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 ```
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/squamata/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -181,18 +229,19 @@ Exploring BAMMTools
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events_squamata <- read.table("BAMM/squamata/event_data.txt", sep=',', header=T)
+events_squamata <- read.table("BAMM/squamata/event_data.txt", sep=",", header=T)
 squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
 
 # plot rate through time
-edata_squamata <- getEventData(squamata_phy_rooted, events_squamata, burnin=0.25, type='trait')
-plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
+edata_squamata <- getEventData(squamata_phy_rooted, "BAMM/squamata/event_data.txt", burnin=0.1, type='trait')
+
+#plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
 
 # trait evolution rate per species
 mean_squamata <- getTipRates(edata_squamata, returnNetDiv = FALSE,
                        statistic = 'mean')$beta.avg
 # plot
-plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
+#plot.bammdata(edata_squamata, lwd=1, method="polar", pal="temperature")
 ```
 
 #### 1.0.3. Birds
@@ -207,17 +256,17 @@ mass_birds <- as.numeric(birds_traits_full$Mass)
 names(mass_birds) <- birds_traits_full$Species3
 
 # setBAMMprior para achar os valores de priors
-setBAMMpriors(phy = birds_phy_ultra, traits = mass_birds)
+priors <- setBAMMpriors(phy = birds_phy_ultra, traits = mass_birds, outfile = NULL)
 
 generateControlFile(file = 'BAMM/birds/controlfile_birds.txt', type = 'trait', params = list(
     treefile = 'birds_fully_bamm.new',
     traitfile='birds_traits_fully.txt',
     numberOfGenerations = '10000',
     overwrite = '1',
-    betaInitPrior = '1.28009136772299e-05',
-    betaShiftPrior = '0.0113668918251832',
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 ```
 
 Check MCMC run convergence
@@ -242,12 +291,13 @@ effectiveSize(postburn$logLik)
 events.birds <- read.table("BAMM/birds/event_data.txt", sep=',', header=T)
 birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
 edata_birds <- getEventData(birds_phy_rooted, events.birds, burnin=0.01, type='trait')
-plotRateThroughTime(edata_birds, ratetype="auto", smooth=TRUE)
+
+#plotRateThroughTime(edata_birds, ratetype="auto", smooth=TRUE)
 
 mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
                        statistic = 'mean')$beta.avg
 
-plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
+#plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
 ```
 
 #### 1.0.4. Mammals
@@ -262,17 +312,17 @@ mass_mammals <- as.numeric(mammals_traits_full$V2)
 names(mass_mammals) <- mammals_traits_full$V1
 
 # setBAMMprior para achar os valores de priors
-setBAMMpriors(phy = mammals_phy_ultra, traits = mass_mammals)
+priors <- setBAMMpriors(phy = mammals_phy_ultra, traits = mass_mammals, outfile = NULL)
 
 generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait', params = list(
     treefile = 'mammals_fully_bamm.new',
     traitfile='mammals_traits_fully.txt',
     numberOfGenerations = '100000',
     overwrite = '1',
-    betaInitPrior = '1.28009136772299e-05',
-    betaShiftPrior = '0.0113668918251832',
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 ```
 
 Check MCMC run convergence
@@ -308,7 +358,6 @@ plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 
 
 
-
 ### 1.2 Harmonized dataset
 
 #### 1.0.1. Frogs
@@ -338,7 +387,7 @@ generateControlFile(file = 'BAMM/amphibia_harm/controlfile_amphibia.txt', type =
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("02_metrics/BAMM/amphibia_harm/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/amphibia_harm/mcmc_out.txt",sep=',', header=T)
 head(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -376,17 +425,20 @@ mass_mammals_harm <- as.numeric(mammals_traits_harm$V2)
 names(mass_mammals_harm) <- mammals_traits_harm$V1
 
 # setBAMMprior para achar os valores de priors
-setBAMMpriors(phy = mammals_phy_ultra_harm, traits = mass_mammals_harm)
+priors = setBAMMpriors(phy = mammals_phy_ultra_harm, traits = mass_mammals_harm,outfile = NULL)
 
-generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = 'trait', params = list(
+generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = 'trait', 
+                    params = list(
     treefile = 'mammals_harm_bamm.new',
     traitfile='mammals_traits_harm.txt',
     numberOfGenerations = '10000',
+    mcmcWriteFreq = '1000',
     overwrite = '1',
-    betaInitPrior = '1.28009136772299e-05',
-    betaShiftPrior = '0.0113668918251832',
-    useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    useObservedMinMaxAsTraitPriors = as.numeric(priors['useObservedMinMaxAsTraitPriors']),
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
+
 ```
 
 Check MCMC run convergence

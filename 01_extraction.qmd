@@ -598,8 +598,6 @@ input_traits_mammals <- new_data_frame <- data.frame(
 ### 4.0. Save dataset
 
 ```{r}
-# TODO salvar os traits no lugar certo BAMM
-
 # Fully dataset
 # with all species and with imputed data for mammals and amphibians
 # amphibia
@@ -639,7 +637,9 @@ write.tree(mammals_phy_rooted, "02_metrics/full_data/mammals_fully.new")
 # traits
 write.table(input_traits_mammals, "02_metrics/BAMM/mammals/mammals_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
 #---
+```
 
+```{r}
 # Harmonized dataset
 # With excluded species with NA's in body size/body mass
 #--- Amphibia
