@@ -78,7 +78,7 @@ bio07_past <- read.table("climate_data/bio7_mean.txt", header = TRUE)
 bio11_past <- read.table("climate_data/bio11_mean.txt", header = TRUE)
 bio15_past <- read.table("climate_data/bio15_mean.txt", header = TRUE)
 bio17_past <- read.table("climate_data/bio17_mean.txt", header = TRUE)
-
+View(bio01_past)
 # summarize paleo-pgem bioclimate variables
 bio01_past_mean <- bio01_past %>%
     mutate_at(c(names(bio01_past)), as.numeric) %>%
@@ -147,7 +147,7 @@ priors <- BAMMtools::setBAMMpriors(phy = anura_phy_full, total.taxa = nrow(anura
 generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'trait', params = list(
     treefile = 'amphibia_fully_bamm.new',
     traitfile='amphibia_traits_fully.txt',
-    numberOfGenerations = '30000000',
+    numberOfGenerations = '12000000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
     betaInitPrior = as.numeric(priors['betaInitPrior']),
@@ -158,12 +158,11 @@ generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'tra
 Check MCMC run convergence
 ```{r}
 mcmcout <- read.table("BAMM/amphibia/mcmc_out.txt",sep=',', header=T)
-tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
 burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
-effectiveSize(postburn$N_shifts) # must be at least 200
+effectiveSize(postburn$N_shifts) # 134.17 - must be at least 200 for big data
 effectiveSize(postburn$logLik)
 ```
 
@@ -175,11 +174,10 @@ Using BAMM tools to retrieve trait evolution rate per tip
 amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
 
 edata_amphibia <- getEventData(amphibia_phy_rooted, "BAMM/amphibia/event_data.txt", burnin=0.25, type='trait')
-
+getwd()
 #plotRateThroughTime(edata_amphibia, ratetype="auto", smooth=TRUE)
-
 mean_anura <- getTipRates(edata_amphibia, statistic = 'mean')$beta.avg
-
+write.table(mean_anura, "amphibia_rates_fully.txt",quote = FALSE, col.names = FALSE,row.names = TRUE)
 #plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
@@ -201,7 +199,7 @@ getwd()
 generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'trait', params = list(
     treefile = 'squamata_fully_bamm.new',
     traitfile='squamata_traits_fully.txt',
-    numberOfGenerations = '15000000',
+    numberOfGenerations = '12000000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
     betaInitPrior = as.numeric(priors['betaInitPrior']),
@@ -215,7 +213,7 @@ mcmcout <- read.table("BAMM/squamata/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
-burnstart <- floor(0.1 * nrow(mcmcout))
+burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
 
 effectiveSize(postburn$N_shifts)
@@ -261,7 +259,7 @@ priors <- setBAMMpriors(phy = birds_phy_ultra, traits = mass_birds, outfile = NU
 generateControlFile(file = 'BAMM/birds/controlfile_birds.txt', type = 'trait', params = list(
     treefile = 'birds_fully_bamm.new',
     traitfile='birds_traits_fully.txt',
-    numberOfGenerations = '10000',
+    numberOfGenerations = '12000000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
     betaInitPrior = as.numeric(priors['betaInitPrior']),
@@ -317,7 +315,7 @@ priors <- setBAMMpriors(phy = mammals_phy_ultra, traits = mass_mammals, outfile 
 generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait', params = list(
     treefile = 'mammals_fully_bamm.new',
     traitfile='mammals_traits_fully.txt',
-    numberOfGenerations = '100000',
+    numberOfGenerations = '30000000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
     betaInitPrior = as.numeric(priors['betaInitPrior']),
@@ -355,8 +353,6 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
-
-
 
 ### 1.2 Harmonized dataset
 
