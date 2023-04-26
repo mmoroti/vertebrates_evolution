@@ -9,3 +9,5 @@ acer-branch
 *02_metrics/src
 *02_metrics/full_data/src/
 *02_metrics/full_data/vccorlib120.dll
+*02_metrics/climate_data
+*02_metrics/shapefiles

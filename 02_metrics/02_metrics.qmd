@@ -76,6 +76,7 @@ mammals_traits_harm <- read.table("harmonized_data/mammals_traits_harm.txt")
 ```
 
 ##### 0.2.2. Phylogenetic data
+
 ```{r}
 # note: ler as árvores pós script fix_error (min branch lenght negative and zero values)
 ###--- Amphibia
@@ -102,6 +103,7 @@ is.ultrametric(mammals_phy_harm) # TRUE
 ```
 
 ##### 0.2.3. Climate data
+
 Past data by Barreto et al., 2003 - PALEO-PGEM-Series: A spatial time series of the global climate over the last 5 million years (Plio-Pleistocene)
 ```{r}
 # PALEO-PGEM-Series - Barreto et al., 2023
@@ -139,14 +141,12 @@ bio17_past_r <- rasterize(bio17_past[,1:2], bio17_past_r, bio17_past[,3])
 Load present data
 ```{r}
 # Climate data from CHELSA
-Bio01 <- raster("CHELSA_bio1_1981-2010_V.2.1") # mean annual air temperature
-
-Bio04 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio4_1981-2010_V.2.1.tif") #Temperature Seasonality
-
-Bio07 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio7_1981-2010_V.2.1.tif") #Temperature Annual Range
-Bio11 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio11_1981-2010_V.2.1.tif") #Mean Temperature of Coldest Quarter
-Bio15 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio15_1981-2010_V.2.1.tif") #Precipitation Seasonality
-Bio17 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio17_1981-2010_V.2.1.tif") #Precipitation of Driest Quarter
+Bio01 <- raster("climate_data/CHELSA_bio1_1981-2010_V.2.1.tif") # mean annual air temperature
+Bio04 <- raster("climate_data/CHELSA_bio4_1981-2010_V.2.1.tif") #Temperature Seasonality
+Bio07 <- raster("climate_data/CHELSA_bio7_1981-2010_V.2.1.tif") #Temperature Annual Range
+Bio11 <- raster("climate_data/CHELSA_bio11_1981-2010_V.2.1.tif") #Mean Temperature of Coldest Quarter
+Bio15 <- raster("climate_data/CHELSA_bio15_1981-2010_V.2.1.tif") #Precipitation Seasonality
+Bio17 <- raster("climate_data/CHELSA_bio17_1981-2010_V.2.1.tif") #Precipitation of Driest Quarter
 ```
 
 ##### 0.2.4. Shapefile data
@@ -157,7 +157,7 @@ anura_shape <- readOGR("shapefiles/ANURA_SA_clip.shp")
 ###--- Squamata
 squamata_shape <- readOGR("shapefiles/modeled_reptiles.shp")
 ###--- Birds
-birds_shape <- readOGR("shapefiles/birds.shp")
+birds_shape <- shapefile("shapefiles/birds.shp")
 ###--- Mammals
 mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
@@ -245,7 +245,7 @@ generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'tra
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("BAMM/squamata/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/squamata/squamata/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -263,13 +263,13 @@ Exploring BAMMTools
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events_squamata <- read.table("BAMM/squamata/event_data.txt", sep=",", header=T)
+events_squamata <- read.table("BAMM/squamata/squamata/event_data.txt", sep=",", header=T)
 squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
 
 # plot rate through time
-edata_squamata <- getEventData(squamata_phy_rooted, "BAMM/squamata/event_data.txt", burnin=0.1, type='trait')
+edata_squamata <- getEventData(squamata_phy_rooted, events_squamata, burnin=0.25, type='trait')
 
-#plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
+plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
 
 # trait evolution rate per species
 mean_squamata <- getTipRates(edata_squamata, returnNetDiv = FALSE,
@@ -334,7 +334,6 @@ mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
 #plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
 ```
 
-
 ##### 1.1.4. Mammals
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
@@ -391,6 +390,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
+
 #### 1.2 Harmonized dataset
 
 ##### 1.2.1. Frogs
@@ -445,7 +445,6 @@ mean_anura <- getTipRates(edata, returnNetDiv = FALSE,
 
 plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
-
 
 ##### 1.2.2. Mammals
 ```{r}
@@ -504,6 +503,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
+
 
 ### 2.0. Lets add var
 #### 2.1. Past climate
@@ -600,18 +600,20 @@ mammals_temp_median_17 <- lets.addvar(mammals_presaus, bio17_past_r, fun = media
 mammals_temp_median <- cbind(mammals_temp_median_01, mammals_temp_median_04, mammals_temp_median_07, mammals_temp_median_11, mammals_temp_median_15, mammals_temp_median_17)
 
 # Now, we need to summarise the climate variables per specie
-temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1255:1260, fun = median) 
+temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1258:1263, fun = median) 
 colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
                                  "Bio11_past", "Bio15_past", "Bio17_past")
 glimpse(temp_median_squamata)
 ```
 
 #### 2.2. Present climate
+
 ##### 2.2.1. Frogs
 ```{r}
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+projection(anura_presaus$Richness_Raster) <- projection(Bio01)
 anura_temp_median_01_present <- lets.addvar(anura_presaus, Bio01, fun = median, onlyvar = FALSE)
-anura_temp_median_04_present <- lets.addvar(anura_presaus, Bio04, fun = median, onlyvar = TRUE) 
+anura_temp_median_04_present <- lets.addvar(anura_presaus, Bio04, fun = median, onlyvar = TRUE)
 anura_temp_median_07_present <- lets.addvar(anura_presaus, Bio07, fun = median, onlyvar = TRUE)
 anura_temp_median_11_present <- lets.addvar(anura_presaus, Bio11, fun = median, onlyvar = TRUE)
 anura_temp_median_15_present <- lets.addvar(anura_presaus, Bio15, fun = median, onlyvar = TRUE)
@@ -619,88 +621,108 @@ anura_temp_median_17_present <- lets.addvar(anura_presaus, Bio17, fun = median, 
 
 # Grouping data set
 anura_temp_median_present <- cbind(anura_temp_median_01_present, anura_temp_median_04_present, anura_temp_median_07_present, anura_temp_median_11_present, anura_temp_median_15_present, anura_temp_median_17_present)
+View(anura_temp_median_present)
 
 # Now, we need to summarise the climate variables per specie
 temp_median_anura_present <- lets.summarizer2(anura_temp_median_present,  pos = 2625:2630, fun = median) 
 
-colnames(temp_median_anura_present) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
-                                 "Bio11_past", "Bio15_past", "Bio17_past")
+colnames(temp_median_anura_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
+                                 "Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_anura_present)
 ```
 
 ##### 2.2.2. Squamata
 ```{r}
 # Creating PresenceAusence object for lets.addvar
-squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+#squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(squamata_presaus$Richness_Raster) <- projection(Bio17)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
-squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
-squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_01_present <- lets.addvar(squamata_presaus, Bio01, fun = median, onlyvar = FALSE)
+squamata_temp_median_04_present <- lets.addvar(squamata_presaus, Bio04, fun = median, onlyvar = TRUE) 
+squamata_temp_median_07_present <- lets.addvar(squamata_presaus, Bio07, fun = median, onlyvar = TRUE)
+squamata_temp_median_11_present <- lets.addvar(squamata_presaus, Bio11, fun = median, onlyvar = TRUE)
+squamata_temp_median_15_present <- lets.addvar(squamata_presaus, Bio15, fun = median, onlyvar = TRUE)
+squamata_temp_median_17_present <- lets.addvar(squamata_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
-View(squamata_temp_median)
-# Now, we need to summarise the climate variables per specie
-temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+squamata_temp_median_present <- cbind(squamata_temp_median_01_present, squamata_temp_median_04_present, squamata_temp_median_07_present, squamata_temp_median_11_present, squamata_temp_median_15_present, squamata_temp_median_17_present)
 
-colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
-                                 "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
+# Now, we need to summarise the climate variables per specie
+temp_median_squamata_present <- lets.summarizer2(squamata_temp_median_present,  pos = 1049:1054, fun = median) 
+colnames(temp_median_squamata_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
+                                 "Bio11_present", "Bio15_present", "Bio17_present")
+glimpse(temp_median_squamata_present)
 ```
+
 
 ##### 2.2.3. Birds
 ```{r}
 # Creating PresenceAusence object for lets.addvar
-birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+#birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(birds_presaus$Richness_Raster) <- projection(Bio01)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
-squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
-squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+birds_temp_median_01_present <- lets.addvar(birds_presaus, Bio01, fun = median, onlyvar = FALSE)
+birds_temp_median_04_present <- lets.addvar(birds_presaus, Bio04, fun = median, onlyvar = TRUE) 
+birds_temp_median_07_present <- lets.addvar(birds_presaus, Bio07, fun = median, onlyvar = TRUE)
+birds_temp_median_11_present <- lets.addvar(birds_presaus, Bio11, fun = median, onlyvar = TRUE)
+birds_temp_median_15_present <- lets.addvar(birds_presaus, Bio15, fun = median, onlyvar = TRUE)
+birds_temp_median_17_present <- lets.addvar(birds_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
-View(squamata_temp_median)
+squamata_temp_median_present <- cbind(birds_temp_median_01_present, birds_temp_median_04_present, birds_temp_median_07_present, birds_temp_median_11_present, birds_temp_median_15_present, birds_temp_median_17_present)
+#View(squamata_temp_median_present)
 # Now, we need to summarise the climate variables per specie
-temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+temp_median_birds_present <- lets.summarizer2(birds_temp_median_present,  pos = 1049:1054, fun = median) 
 
-colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
-                                 "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
+colnames(temp_median_birds_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
+                                 "Bio11_present", "Bio15_present", "Bio17_present")
+glimpse(temp_median_birds_present)
 ```
 
 ##### 2.2.4. Mammals
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
-mammals_presaus <- lets.presab(mammals_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-projection(mammals_presaus$Richness_Raster) <- projection(bio17_past_r)
+#mammals_presaus <- lets.presab(mammals_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(mammals_presaus$Richness_Raster) <- projection(Bio01)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-mammals_temp_median_01 <- lets.addvar(mammals_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
-mammals_temp_median_04 <- lets.addvar(mammals_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
-mammals_temp_median_07 <- lets.addvar(mammals_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
-mammals_temp_median_11 <- lets.addvar(mammals_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
-mammals_temp_median_15 <- lets.addvar(mammals_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
-mammals_temp_median_17 <- lets.addvar(mammals_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_01_present <- lets.addvar(mammals_presaus, Bio01, fun = median, onlyvar = FALSE)
+mammals_temp_median_04_present <- lets.addvar(mammals_presaus, Bio04, fun = median, onlyvar = TRUE) 
+mammals_temp_median_07_present <- lets.addvar(mammals_presaus, Bio07, fun = median, onlyvar = TRUE)
+mammals_temp_median_11_present <- lets.addvar(mammals_presaus, Bio11, fun = median, onlyvar = TRUE)
+mammals_temp_median_15_present <- lets.addvar(mammals_presaus, Bio15, fun = median, onlyvar = TRUE)
+mammals_temp_median_17_present <- lets.addvar(mammals_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-mammals_temp_median <- cbind(mammals_temp_median_01, mammals_temp_median_04, mammals_temp_median_07, mammals_temp_median_11, mammals_temp_median_15, mammals_temp_median_17)
-
+mammals_temp_median_present <- cbind(mammals_temp_median_01_present, mammals_temp_median_04_present, mammals_temp_median_07_present, mammals_temp_median_11_present, mammals_temp_median_15_present, mammals_temp_median_17_present)
+View(mammals_temp_median_present)
 # Now, we need to summarise the climate variables per specie
-temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1049:1054, fun = median) 
-colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
-                                 "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
+temp_median_mammals_present <- lets.summarizer2(mammals_temp_median_present,  pos = 1258:1263, fun = median)
+colnames(temp_median_mammals_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
+                                 "Bio11_present", "Bio15_present", "Bio17_present")
+glimpse(temp_median_mammals_present)
 ```
 
 
 ### 3.0 Save data
+
+```{r}
+# join past and present niche climate for tetrapods
+climate_niche_amphibia <- inner_join(temp_median_anura, temp_median_anura_present, by="Species")
+climate_niche_squamata <- inner_join(temp_median_squamata, temp_median_squamata_present, by="Species")
+climate_niche_birds <- inner_join(temp_median_birds, temp_median_squamata_birds, by="Species")
+climate_niche_mammals <- inner_join(temp_median_mammals, temp_median_mammals_present, by="Species")
+
+# save dataset
+write.table(climate_niche_amphibia, "climate_data/climate_niche_amphibia.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(climate_niche_squamata, "climate_data/climate_niche_squamata.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(climate_niche_birds, "climate_data/climate_niche_birds.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(climate_niche_mammals, "climate_data/climate_niche_mammals.txt", 
+            sep=",", quote=FALSE, row.names = F)
+```
