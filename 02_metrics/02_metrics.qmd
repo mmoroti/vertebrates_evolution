@@ -16,17 +16,49 @@ library(sf) # spatial data package
 library(phytools) # phylogenetic data
 library(BAMMtools) # trait evolution rate
 library(coda) # check mcmc run convergence
+library(rgdal) #spatial data
+library(letsR) #spatial data 
 ```
 
 ### 0.1. Functions
 
 ```{r}
-
+lets.summarizer2 <- function (x, pos, xy = TRUE, fun = mean) 
+{
+  var <- x[, pos, drop = FALSE]
+  sp <- x[, -pos, drop = FALSE]
+  if (xy) {
+    sp <- sp[, -(1:2), drop = FALSE]
+  }
+  Species <- colnames(sp)
+  n <- length(Species)
+  lpos <- length(pos)
+  resum <- matrix(NA, nrow = n, ncol = lpos)
+  colnames(resum) <- colnames(var)
+  for (i in 1:n) {
+    vari <- var[(sp[, i] == 1), , drop = FALSE]
+    is_all_na <- apply(vari, 2, function(x) {
+      all(is.na(x))
+    })
+    if (nrow(vari) == 0 | all(is_all_na)) {
+      resum[i, ] <- rep(NA, lpos)
+    }
+    else {
+      if (any(is_all_na)) {
+        resum[i, is_all_na] <- NA
+      }
+      resum[i, !is_all_na] <- apply(vari[, !is_all_na, 
+                                         drop = FALSE], 2, fun, na.rm = TRUE)
+    }
+  }
+  resul <- as.data.frame(cbind(Species, resum))
+  return(resul)
+}
 ```
 
 ### 0.2. Load data
 
-#### 0.2.1. Trait data
+##### 0.2.1. Trait data
 
 ```{r}
 ###--- Amphibia
@@ -43,7 +75,7 @@ mammals_traits_full <- read.table("full_data/mammals_traits_fully.txt")
 mammals_traits_harm <- read.table("harmonized_data/mammals_traits_harm.txt")
 ```
 
-#### 0.2.2. Phylogenetic data
+##### 0.2.2. Phylogenetic data
 ```{r}
 # note: ler as árvores pós script fix_error (min branch lenght negative and zero values)
 ###--- Amphibia
@@ -69,7 +101,8 @@ mammals_phy_harm <- read.tree("harmonized_data/mammals_harm.new_noNeg.newick")
 is.ultrametric(mammals_phy_harm) # TRUE
 ```
 
-#### 0.2.3. Climate data
+##### 0.2.3. Climate data
+Past data by Barreto et al., 2003 - PALEO-PGEM-Series: A spatial time series of the global climate over the last 5 million years (Plio-Pleistocene)
 ```{r}
 # PALEO-PGEM-Series - Barreto et al., 2023
 bio01_past <- read.table("climate_data/bio1_mean.txt", header = TRUE)
@@ -79,57 +112,60 @@ bio11_past <- read.table("climate_data/bio11_mean.txt", header = TRUE)
 bio15_past <- read.table("climate_data/bio15_mean.txt", header = TRUE)
 bio17_past <- read.table("climate_data/bio17_mean.txt", header = TRUE)
 View(bio01_past)
-# summarize paleo-pgem bioclimate variables
-bio01_past_mean <- bio01_past %>%
-    mutate_at(c(names(bio01_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio01_past)/5001) %>%
-    select(Long, Lat, T_mean)
-
-bio04_past_mean <- bio04_past %>%
-    mutate_at(c(names(bio04_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio04_past)/5001) %>%
-    select(Long, Lat, T_mean)
-
-bio07_past_mean <- bio07_past %>%
-    mutate_at(c(names(bio07_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio07_past)/5001) %>%
-    select(Long, Lat, T_mean)
-
-bio11_past_mean <- bio11_past %>%
-    mutate_at(c(names(bio11_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio11_past)/5001) %>%
-    select(Long, Lat, T_mean)
-
-bio15_past_mean <- bio15_past %>%
-    mutate_at(c(names(bio15_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio15_past)/5001) %>%
-    select(Long, Lat, T_mean)
-
-bio17_past_mean <- bio17_past %>%
-    mutate_at(c(names(bio17_past)), as.numeric) %>%
-    mutate(T_mean = rowSums(bio17_past)/5001) %>%
-    select(Long, Lat, T_mean)
 ```
 
+Convert dataframe into raster file
 ```{r}
 # convert to raster file
-r <- raster(extent(min(bio01_past_mean$Long), max(bio01_past_mean$Long), min(bio01_past_mean$Lat), max(bio01_past_mean$Lat)), 
-            resolution = 1, 
-            crs = "+proj=longlat +datum=WGS84")
+bio01_past_r <- raster(extent(min(bio01_past$Long), max(bio01_past$Long), min(bio01_past$Lat), max(bio01_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio01_past_r <- rasterize(bio01_past[,1:2], bio01_past_r, bio01_past[,3])
 
-r <- rasterize(bio01_past_mean[,1:2], r, bio01_past_mean[,3])
-plot(r)
+bio04_past_r <- raster(extent(min(bio04_past$Long), max(bio04_past$Long), min(bio04_past$Lat), max(bio04_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio04_past_r <- rasterize(bio04_past[,1:2], bio04_past_r, bio04_past[,3])
+
+bio07_past_r <- raster(extent(min(bio07_past$Long), max(bio07_past$Long), min(bio07_past$Lat), max(bio07_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio07_past_r <- rasterize(bio07_past[,1:2], bio07_past_r, bio07_past[,3])
+
+bio11_past_r <- raster(extent(min(bio11_past$Long), max(bio11_past$Long), min(bio11_past$Lat), max(bio11_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio11_past_r <- rasterize(bio11_past[,1:2], bio11_past_r, bio11_past[,3])
+
+bio15_past_r <- raster(extent(min(bio15_past$Long), max(bio15_past$Long), min(bio15_past$Lat), max(bio15_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio15_past_r <- rasterize(bio15_past[,1:2], bio15_past_r, bio15_past[,3])
+
+bio17_past_r <- raster(extent(min(bio17_past$Long), max(bio17_past$Long), min(bio17_past$Lat), max(bio17_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
+bio17_past_r <- rasterize(bio17_past[,1:2], bio17_past_r, bio17_past[,3])
 ```
 
-#### 0.2.4. Shapefile data
+Load present data
+```{r}
+# Climate data from CHELSA
+Bio01 <- raster("CHELSA_bio1_1981-2010_V.2.1") # mean annual air temperature
+
+Bio04 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio4_1981-2010_V.2.1.tif") #Temperature Seasonality
+
+Bio07 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio7_1981-2010_V.2.1.tif") #Temperature Annual Range
+Bio11 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio11_1981-2010_V.2.1.tif") #Mean Temperature of Coldest Quarter
+Bio15 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio15_1981-2010_V.2.1.tif") #Precipitation Seasonality
+Bio17 <- raster("https://os.zhdk.cloud.switch.ch/envicloud/chelsa/chelsa_V2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio17_1981-2010_V.2.1.tif") #Precipitation of Driest Quarter
+```
+
+##### 0.2.4. Shapefile data
 
 ```{r}
+#--- Amphibia
+anura_shape <- readOGR("shapefiles/ANURA_SA_clip.shp")
+###--- Squamata
+squamata_shape <- readOGR("shapefiles/modeled_reptiles.shp")
+###--- Birds
+birds_shape <- readOGR("shapefiles/birds.shp")
+###--- Mammals
+mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
 
 ### 1.0. Data processing for BAMM analysis
 
-### 1.1. Complete dataset
-#### 1.0.1. Frogs
+#### 1.1. Complete dataset
+##### 1.1.1. Frogs
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
@@ -181,7 +217,7 @@ write.table(mean_anura, "amphibia_rates_fully.txt",quote = FALSE, col.names = FA
 #plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
-#### 1.0.2. Squamatas
+##### 1.1.2. Squamatas
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 squamata_phy_ultra <- force.ultrametric(squamata_phy_full)
@@ -242,7 +278,7 @@ mean_squamata <- getTipRates(edata_squamata, returnNetDiv = FALSE,
 #plot.bammdata(edata_squamata, lwd=1, method="polar", pal="temperature")
 ```
 
-#### 1.0.3. Birds
+##### 1.1.3. Birds
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 birds_phy_ultra <- force.ultrametric(birds_phy_full)
@@ -298,7 +334,8 @@ mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
 #plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
 ```
 
-#### 1.0.4. Mammals
+
+##### 1.1.4. Mammals
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 mammals_phy_ultra <- force.ultrametric(mammals_phy_full)
@@ -354,9 +391,9 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
-### 1.2 Harmonized dataset
+#### 1.2 Harmonized dataset
 
-#### 1.0.1. Frogs
+##### 1.2.1. Frogs
 ```{r}
 # preparing data for setBAMMpriors
 svl_amphibia_harm <- as.numeric(anura_traits_harm$V2)
@@ -409,7 +446,8 @@ mean_anura <- getTipRates(edata, returnNetDiv = FALSE,
 plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
-#### 1.0.2. Mammals
+
+##### 1.2.2. Mammals
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 mammals_phy_ultra_harm <- force.ultrametric(mammals_phy_harm)
@@ -427,7 +465,7 @@ generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = '
                     params = list(
     treefile = 'mammals_harm_bamm.new',
     traitfile='mammals_traits_harm.txt',
-    numberOfGenerations = '10000',
+    numberOfGenerations = '15000000',
     mcmcWriteFreq = '1000',
     overwrite = '1',
     useObservedMinMaxAsTraitPriors = as.numeric(priors['useObservedMinMaxAsTraitPriors']),
@@ -439,11 +477,10 @@ generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = '
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
-tail(mcmcout)
+mcmcout <- read.table("BAMM/mammals_harm/mcmc_out.txt",sep=',', header=T)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
-burnstart <- floor(0.1 * nrow(mcmcout))
+burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
 
 effectiveSize(postburn$N_shifts)
@@ -457,7 +494,7 @@ BAMMTools exploring
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events.mammals <- read.table("BAMM/mammals/event_data.txt", sep=',', header=T)
+events.mammals <- read.table("BAMM/mammals_harm/event_data.txt", sep=',', header=T)
 mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
 edata_mammals <- getEventData(mammals_phy_rooted, events.mammals, burnin=0.01, type='trait')
 plotRateThroughTime(edata_mammals, ratetype="auto", smooth=TRUE)
@@ -468,7 +505,202 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
-
-
 ### 2.0. Lets add var
+#### 2.1. Past climate
+##### 2.1.1. Frogs
+```{r}
+# Creating PresenceAusence object for lets.addvar
+anura_presaus <- lets.presab(anura_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(anura_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+anura_temp_median_01 <- lets.addvar(anura_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+anura_temp_median_04 <- lets.addvar(anura_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+anura_temp_median_07 <- lets.addvar(anura_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+anura_temp_median_11 <- lets.addvar(anura_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+anura_temp_median_15 <- lets.addvar(anura_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+anura_temp_median_17 <- lets.addvar(anura_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+anura_temp_median <- cbind(anura_temp_median_01, anura_temp_median_04, anura_temp_median_07, anura_temp_median_11, anura_temp_median_15, anura_temp_median_17)
+
+# Now, we need to summarise the climate variables per specie
+temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = 2625:2630, fun = median) 
+
+colnames(temp_median_anura) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_anura)
+```
+
+##### 2.1.2. Squamata
+```{r}
+# Creating PresenceAusence object for lets.addvar
+squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
+View(squamata_temp_median)
+# Now, we need to summarise the climate variables per specie
+temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+
+colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+##### 2.1.3. Birds
+```{r}
+# Creating PresenceAusence object for lets.addvar
+birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
+View(squamata_temp_median)
+# Now, we need to summarise the climate variables per specie
+temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+
+colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+##### 2.1.4. Mammals
+```{r}
+# Creating PresenceAusence object for lets.addvar
+mammals_presaus <- lets.presab(mammals_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(mammals_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+mammals_temp_median_01 <- lets.addvar(mammals_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+mammals_temp_median_04 <- lets.addvar(mammals_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+mammals_temp_median_07 <- lets.addvar(mammals_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_11 <- lets.addvar(mammals_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_15 <- lets.addvar(mammals_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_17 <- lets.addvar(mammals_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+mammals_temp_median <- cbind(mammals_temp_median_01, mammals_temp_median_04, mammals_temp_median_07, mammals_temp_median_11, mammals_temp_median_15, mammals_temp_median_17)
+
+# Now, we need to summarise the climate variables per specie
+temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1255:1260, fun = median) 
+colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+#### 2.2. Present climate
+##### 2.2.1. Frogs
+```{r}
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+anura_temp_median_01_present <- lets.addvar(anura_presaus, Bio01, fun = median, onlyvar = FALSE)
+anura_temp_median_04_present <- lets.addvar(anura_presaus, Bio04, fun = median, onlyvar = TRUE) 
+anura_temp_median_07_present <- lets.addvar(anura_presaus, Bio07, fun = median, onlyvar = TRUE)
+anura_temp_median_11_present <- lets.addvar(anura_presaus, Bio11, fun = median, onlyvar = TRUE)
+anura_temp_median_15_present <- lets.addvar(anura_presaus, Bio15, fun = median, onlyvar = TRUE)
+anura_temp_median_17_present <- lets.addvar(anura_presaus, Bio17, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+anura_temp_median_present <- cbind(anura_temp_median_01_present, anura_temp_median_04_present, anura_temp_median_07_present, anura_temp_median_11_present, anura_temp_median_15_present, anura_temp_median_17_present)
+
+# Now, we need to summarise the climate variables per specie
+temp_median_anura_present <- lets.summarizer2(anura_temp_median_present,  pos = 2625:2630, fun = median) 
+
+colnames(temp_median_anura_present) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_anura_present)
+```
+
+##### 2.2.2. Squamata
+```{r}
+# Creating PresenceAusence object for lets.addvar
+squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
+View(squamata_temp_median)
+# Now, we need to summarise the climate variables per specie
+temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+
+colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+##### 2.2.3. Birds
+```{r}
+# Creating PresenceAusence object for lets.addvar
+birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
+View(squamata_temp_median)
+# Now, we need to summarise the climate variables per specie
+temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+
+colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+##### 2.2.4. Mammals
+```{r}
+# Creating PresenceAusence object for lets.addvar
+mammals_presaus <- lets.presab(mammals_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(mammals_presaus$Richness_Raster) <- projection(bio17_past_r)
+
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+mammals_temp_median_01 <- lets.addvar(mammals_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+mammals_temp_median_04 <- lets.addvar(mammals_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+mammals_temp_median_07 <- lets.addvar(mammals_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_11 <- lets.addvar(mammals_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_15 <- lets.addvar(mammals_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+mammals_temp_median_17 <- lets.addvar(mammals_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+
+# Grouping data set
+mammals_temp_median <- cbind(mammals_temp_median_01, mammals_temp_median_04, mammals_temp_median_07, mammals_temp_median_11, mammals_temp_median_15, mammals_temp_median_17)
+
+# Now, we need to summarise the climate variables per specie
+temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1049:1054, fun = median) 
+colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+                                 "Bio11_past", "Bio15_past", "Bio17_past")
+glimpse(temp_median_squamata)
+```
+
+
 ### 3.0 Save data
