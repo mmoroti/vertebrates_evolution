@@ -158,6 +158,7 @@ anura_shape <- readOGR("shapefiles/ANURA_SA_clip.shp")
 squamata_shape <- readOGR("shapefiles/modeled_reptiles.shp")
 ###--- Birds
 birds_shape <- shapefile("shapefiles/birds.shp")
+View(birds_shape)
 ###--- Mammals
 mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
@@ -564,22 +565,22 @@ birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx 
 projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-squamata_temp_median_01 <- lets.addvar(squamata_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
-squamata_temp_median_04 <- lets.addvar(squamata_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
-squamata_temp_median_07 <- lets.addvar(squamata_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_11 <- lets.addvar(squamata_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_15 <- lets.addvar(squamata_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
-squamata_temp_median_17 <- lets.addvar(squamata_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
+birds_temp_median_01 <- lets.addvar(birds_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+birds_temp_median_04 <- lets.addvar(birds_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
+birds_temp_median_07 <- lets.addvar(birds_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
+birds_temp_median_11 <- lets.addvar(birds_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
+birds_temp_median_15 <- lets.addvar(birds_presaus, bio15_past_r, fun = median, onlyvar = TRUE)
+birds_temp_median_17 <- lets.addvar(birds_presaus, bio17_past_r, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-squamata_temp_median <- cbind(squamata_temp_median_01, squamata_temp_median_04, squamata_temp_median_07, squamata_temp_median_11, squamata_temp_median_15, squamata_temp_median_17)
-View(squamata_temp_median)
-# Now, we need to summarise the climate variables per specie
-temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054, fun = median) 
+birds_temp_median <- cbind(birds_temp_median_01, birds_temp_median_04, birds_temp_median_07, birds_temp_median_11, birds_temp_median_15, birds_temp_median_17)
 
-colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
+# Now, we need to summarise the climate variables per specie
+temp_median_birds <- lets.summarizer2(birds_temp_median,  pos = 1049:1054, fun = median) 
+
+colnames(temp_median_birds) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
                                  "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
+glimpse(temp_median_birds)
 ```
 
 ##### 2.1.4. Mammals
