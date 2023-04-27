@@ -1,14 +1,14 @@
 Command line: bamm -c controlfile_birds.txt
 Git commit id: 462bc39af9d4c4b4dd81a481f32c953e93a076e7
-Random seed: 1682092015
-Start time: Fri Apr 21 12:46:55 2023
+Random seed: 1682541479
+Start time: Wed Apr 26 16:37:59 2023
 
 Current parameter settings:
        acceptanceInfoFileName    acceptance_info.txt
           acceptanceResetFreq    1000
                      autotune    0
                      betaInit    0.5
-                betaInitPrior    1.28009136772299e-05
+                betaInitPrior    3.20969449381085e-05
             betaInitRootPrior    -1.0
       betaIsTimeVariablePrior    1
                   betaOutfile    beta_rates.txt
@@ -22,7 +22,7 @@ Current parameter settings:
               eventDataInfile    event_data_in.txt
              eventDataOutfile    event_data.txt
            eventDataWriteFreq    1000
-       expectedNumberOfShifts    1.0
+       expectedNumberOfShifts    1
 fastSimulatePriorExperimental    0
      fastSimulatePrior_BurnIn    0.05
 fastSimulatePrior_Generations    5000000
@@ -39,7 +39,7 @@ fastSimulatePrior_Generations    5000000
            nodeStateWriteFreq    0
             numberOccurrences    0
                numberOfChains    4
-          numberOfGenerations    10000
+          numberOfGenerations    12000000
               observationTime    -1
                       outName    
          outputAcceptanceInfo    0
@@ -78,5 +78,3 @@ updateRateEventNumberForBranch    0.0
 useObservedMinMaxAsTraitPriors    1
    validateEventConfiguration    0
    writeMeanBranchLengthTrees    0
-End time: Fri Apr 21 12:47:32 2023
-

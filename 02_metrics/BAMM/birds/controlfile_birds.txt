@@ -56,13 +56,13 @@ overwrite = 1
 # PRIORS
 ################################################################################
 
-expectedNumberOfShifts = 1.0
+expectedNumberOfShifts = 1
 # prior on the number of shifts in diversification
 # Suggested values: 
 #     expectedNumberOfShifts = 1.0 for small trees (< 500 tips)
 #  expectedNumberOfShifts = 10 or even 50 for large trees (> 5000 tips) 
  
-betaInitPrior = 1.28009136772299e-05
+betaInitPrior = 3.20969449381085e-05
 # Prior (rate parameter of exponential) on the initial
 # phenotypic evolutionary rate associated with regimes
 
@@ -92,7 +92,7 @@ betaIsTimeVariablePrior = 1
 # MCMC SIMULATION SETTINGS & OUTPUT OPTIONS
 ################################################################################
 
-numberOfGenerations = 10000
+numberOfGenerations = 12000000
 # Number of generations to perform MCMC simulation
 
 mcmcOutfile = mcmc_out.txt

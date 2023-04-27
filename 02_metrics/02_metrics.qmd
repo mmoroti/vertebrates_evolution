@@ -157,8 +157,8 @@ anura_shape <- readOGR("shapefiles/ANURA_SA_clip.shp")
 ###--- Squamata
 squamata_shape <- readOGR("shapefiles/modeled_reptiles.shp")
 ###--- Birds
-birds_shape <- shapefile("shapefiles/birds.shp")
-View(birds_shape)
+library(maptools)
+birds_shape <- readShapePoly("shapefiles/teste/teste.shp")
 ###--- Mammals
 mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
@@ -306,14 +306,14 @@ generateControlFile(file = 'BAMM/birds/controlfile_birds.txt', type = 'trait', p
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/birds/birds/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
-burnstart <- floor(0.1 * nrow(mcmcout))
+burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
 
-effectiveSize(postburn$N_shifts)
+effectiveSize(postburn$N_shifts) # 170.52 
 effectiveSize(postburn$logLik)
 # Also, remember that comments in R are lines that start with
 #     a pound sign. We'll occasionally use them here.
@@ -323,15 +323,15 @@ effectiveSize(postburn$logLik)
 ```{r} 
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events.birds <- read.table("BAMM/birds/event_data.txt", sep=',', header=T)
+events.birds <- read.table("BAMM/birds/birds/event_data.txt", sep=',', header=T)
 birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
-edata_birds <- getEventData(birds_phy_rooted, events.birds, burnin=0.01, type='trait')
+edata_birds <- getEventData(birds_phy_rooted, events.birds, burnin=0.25, type='trait')
 
 #plotRateThroughTime(edata_birds, ratetype="auto", smooth=TRUE)
 
 mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
                        statistic = 'mean')$beta.avg
-
+write.table(mean_birds, "birds_rates_fully.txt",quote = FALSE, col.names = FALSE,row.names = TRUE)
 #plot.bammdata(edata_birds, lwd=1, method="polar", pal="temperature")
 ```
 
@@ -362,7 +362,7 @@ generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/mammals/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -391,7 +391,6 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
-
 #### 1.2 Harmonized dataset
 
 ##### 1.2.1. Frogs
@@ -402,6 +401,7 @@ names(svl_amphibia_harm) <- anura_traits_harm$V1
 
 # setBAMMprior para achar os valores de priors
 setBAMMpriors(phy = anura_phy_harm, traits = svl_amphibia_harm)
+priors <- BAMMtools::setBAMMpriors(phy = anura_phy_harm, traits = svl_amphibia_harm, outfile = NULL) 
 
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 amphibia_phy_ultra_harm <- force.ultrametric(anura_phy_harm)
@@ -411,12 +411,12 @@ getwd()
 generateControlFile(file = 'BAMM/amphibia_harm/controlfile_amphibia.txt', type = 'trait', params = list(
     treefile = 'amphibia_harm_bamm.new',
     traitfile='amphibia_traits_harm.txt',
-    numberOfGenerations = '10000',
+    numberOfGenerations = '12000000',
     overwrite = '1',
-    betaInitPrior = '407.026502174263',
-    betaShiftPrior = '0.0036834541498432',
+    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+    betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = '1.0'))
+    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 ```
 
 Check MCMC run convergence
@@ -505,7 +505,6 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
-
 ### 2.0. Lets add var
 #### 2.1. Past climate
 ##### 2.1.1. Frogs
@@ -562,6 +561,8 @@ glimpse(temp_median_squamata)
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
+projection(birds_shape) <- projection(bio17_past_r)
+
 projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
@@ -606,6 +607,7 @@ colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07
                                  "Bio11_past", "Bio15_past", "Bio17_past")
 glimpse(temp_median_squamata)
 ```
+
 
 #### 2.2. Present climate
 
