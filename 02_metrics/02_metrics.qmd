@@ -157,8 +157,7 @@ anura_shape <- readOGR("shapefiles/ANURA_SA_clip.shp")
 ###--- Squamata
 squamata_shape <- readOGR("shapefiles/modeled_reptiles.shp")
 ###--- Birds
-library(maptools)
-birds_shape <- readShapePoly("shapefiles/teste/teste.shp")
+birds_shape <- readOGR("shapefiles/teste/birds.shp")
 ###--- Mammals
 mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
@@ -246,7 +245,7 @@ generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'tra
 
 Check MCMC run convergence
 ```{r}
-mcmcout <- read.table("BAMM/squamata/squamata/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/squamata/teste/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -264,7 +263,7 @@ Exploring BAMMTools
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events_squamata <- read.table("BAMM/squamata/squamata/event_data.txt", sep=",", header=T)
+events_squamata <- read.table("BAMM/squamata/teste/event_data.txt", sep=",", header=T)
 squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
 
 # plot rate through time
@@ -462,16 +461,15 @@ names(mass_mammals_harm) <- mammals_traits_harm$V1
 priors = setBAMMpriors(phy = mammals_phy_ultra_harm, traits = mass_mammals_harm,outfile = NULL)
 
 generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = 'trait', 
-                    params = list(
-    treefile = 'mammals_harm_bamm.new',
-    traitfile='mammals_traits_harm.txt',
-    numberOfGenerations = '15000000',
-    mcmcWriteFreq = '1000',
-    overwrite = '1',
-    useObservedMinMaxAsTraitPriors = as.numeric(priors['useObservedMinMaxAsTraitPriors']),
-    betaShiftPrior = as.numeric(priors['betaShiftPrior']),
-    betaInitPrior = as.numeric(priors['betaInitPrior']),
-    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
+                    params = list(treefile = 'mammals_harm_bamm.new',
+                                  traitfile='mammals_traits_harm.txt',
+                                  numberOfGenerations = '10000000',
+                                  mcmcWriteFreq = '1000',
+                                  overwrite = '1',
+                                  useObservedMinMaxAsTraitPriors = as.numeric(priors['useObservedMinMaxAsTraitPriors']),
+                                  betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+                                  betaInitPrior = as.numeric(priors['betaInitPrior']),
+                                  expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
 
 ```
 
@@ -560,10 +558,13 @@ glimpse(temp_median_squamata)
 ##### 2.1.3. Birds
 ```{r}
 # Creating PresenceAusence object for lets.addvar
-birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
-projection(birds_shape) <- projection(bio17_past_r)
+path.birds <- system.file("extdata", package = "letsR")
 
-projection(squamata_presaus$Richness_Raster) <- projection(bio17_past_r)
+birds_shape <- readOGR("shapefiles/teste/birds.shp")
+
+birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90, count=T)
+
+projection(birds_presaus$Richness_Raster) <- projection(bio17_past_r)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
 birds_temp_median_01 <- lets.addvar(birds_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
@@ -576,11 +577,12 @@ birds_temp_median_17 <- lets.addvar(birds_presaus, bio17_past_r, fun = median, o
 # Grouping data set
 birds_temp_median <- cbind(birds_temp_median_01, birds_temp_median_04, birds_temp_median_07, birds_temp_median_11, birds_temp_median_15, birds_temp_median_17)
 
-# Now, we need to summarise the climate variables per specie
-temp_median_birds <- lets.summarizer2(birds_temp_median,  pos = 1049:1054, fun = median) 
+View(birds_temp_median)
 
-colnames(temp_median_birds) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
-                                 "Bio11_past", "Bio15_past", "Bio17_past")
+# Now, we need to summarise the climate variables per specie
+temp_median_birds <- lets.summarizer2(birds_temp_median,  pos = 1526:1531, fun = median) 
+
+colnames(temp_median_birds) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past","Bio11_past", "Bio15_past", "Bio17_past")
 glimpse(temp_median_birds)
 ```
 
@@ -674,13 +676,12 @@ birds_temp_median_15_present <- lets.addvar(birds_presaus, Bio15, fun = median, 
 birds_temp_median_17_present <- lets.addvar(birds_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-squamata_temp_median_present <- cbind(birds_temp_median_01_present, birds_temp_median_04_present, birds_temp_median_07_present, birds_temp_median_11_present, birds_temp_median_15_present, birds_temp_median_17_present)
+birds_temp_median_present <- cbind(birds_temp_median_01_present, birds_temp_median_04_present, birds_temp_median_07_present, birds_temp_median_11_present, birds_temp_median_15_present, birds_temp_median_17_present)
 #View(squamata_temp_median_present)
 # Now, we need to summarise the climate variables per specie
-temp_median_birds_present <- lets.summarizer2(birds_temp_median_present,  pos = 1049:1054, fun = median) 
+temp_median_birds_present <- lets.summarizer2(birds_temp_median_present,  pos = 1526:1531, fun = median) 
 
-colnames(temp_median_birds_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
-                                 "Bio11_present", "Bio15_present", "Bio17_present")
+colnames(temp_median_birds_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present","Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_birds_present)
 ```
 
@@ -709,14 +710,13 @@ colnames(temp_median_mammals_present) <- c("Species", "Bio01_present", "Bio04_pr
 glimpse(temp_median_mammals_present)
 ```
 
-
 ### 3.0 Save data
 
 ```{r}
 # join past and present niche climate for tetrapods
 climate_niche_amphibia <- inner_join(temp_median_anura, temp_median_anura_present, by="Species")
 climate_niche_squamata <- inner_join(temp_median_squamata, temp_median_squamata_present, by="Species")
-climate_niche_birds <- inner_join(temp_median_birds, temp_median_squamata_birds, by="Species")
+climate_niche_birds <- inner_join(temp_median_birds, temp_median_birds_present, by="Species")
 climate_niche_mammals <- inner_join(temp_median_mammals, temp_median_mammals_present, by="Species")
 
 # save dataset
