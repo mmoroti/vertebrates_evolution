@@ -1,0 +1,134 @@
+---
+title: "03_analysis"
+author: "Matheus Moroti"
+format: html
+editor: visual
+---
+
+### 0.0. Libraries
+
+```{r}
+library(visdat) # missing data check
+library(tidyverse) # data science handling
+library(letsR) # spatial data package
+library(rgdal) # spatial data package
+library(sf) # spatial data package
+library(phytools) # phylogenetic data
+library(BAMMtools) # trait evolution rate
+library(coda) # check mcmc run convergence
+library(rgdal) #spatial data
+library(letsR) #spatial data 
+```
+
+### 0.1. Functions
+
+```{r}
+resu_sq <- lets.presab.grid(anura_shape, sq_grid , sample.unit = "FID_1")
+```
+
+### 0.2. Load data
+
+#### 0.2.1. List of species
+```{r}
+amphibia_full_list <- read.table("list_of_species/composition_amphibia.txt", h=T) #Vanconcelos et al. (2019);
+squamata_full_list <- read.table("list_of_species/composition_reptiles.txt", h=T) #Roll et al. (2017);
+birds_full_list <- read.table("list_of_species/composition_birds.txt", h=T) #BirdLife (2015); 
+mammals_full_list <- read.table("list_of_species/composition_mammals.txt", h=T) #IUCN  
+```
+
+#### 0.2.2. Climate niche
+```{r}
+amphibia_full_niche <- read.table("climate_niche/climate_niche_amphibia.txt", sep=",", h=T)
+squamata_full_niche <- read.table("climate_niche/climate_niche_squamata.txt", h=T) 
+birds_full_niche <- read.table("climate_niche/climate_niche_birds.txt", h=T) 
+mammals_full_niche <- read.table("climate_niche/climate_niche_mammals.txt", h=T)
+head(amphibia_full_niche)
+```
+
+#### 0.2.3. Rate trait evolution
+```{r}
+amphibia_full_rates <- read.table("trait_evolution/amphibia_rates_fully.txt", h=F) 
+squamata_full_list <- read.table("trait_evolution/squamata_rates_fully.txt", h=T) 
+birds_full_list <- read.table("trait_evolution/birds_rates_fully.txt", h=T) 
+mammals_full_list <- read.table("trait_evolution/mammals_rates_fully.txt", h=T) 
+```
+
+### 1.0. Select pool species of Atlantic forest
+#### 1.1. Amphibia
+Merge with climate niche
+```{r}
+# Transform column names to rows
+amphibia_list <- amphibia_full_list %>% 
+  gather(key = "Species", value = "column_value", Rhinella_azarai:Scinax_cretatus) %>%
+  distinct(Species) %>%
+  arrange(Species)
+
+# adjustments in nomenclature
+amphibia_list$Species <- str_replace_all(amphibia_list$Species, "Scinax_v.signatus", "Scinax_v-signatus") 
+amphibia_list$Species <- str_replace_all(amphibia_list$Species, "Scinax_x.signatus", "Scinax_x-signatus")
+
+# join with climate niche
+species_climate_niche <- left_join(amphibia_list, amphibia_full_niche, by="Species")
+head(species_climate_niche)
+
+# verifing the species don't merge
+anti_join(amphibia_list, amphibia_full_niche, by="Species") # 0 rows
+sum(is.na(species_climate_niche)) # 0 NA's
+#vis_miss(species_climate_niche) # 0.4 % missing data
+
+```
+
+Merge with trait evolution rate
+```{r}
+# Merge with trait evolution rate
+amphibia_full_rates <- amphibia_full_rates %>% rename(Species = V1, trait_rate = V2)
+#View(amphibia_full_rates)
+
+# adjustments in nomenclature
+amphibia_full_rates$Species <- str_replace_all(amphibia_full_rates$Species, "Hylomantis_aspera", "Agalychnis_aspera") %>%
+  str_replace_all("Phyllomedusa_azurea", "Pithecopus_azureus") %>%
+  str_replace_all("Phyllomedusa_ayeaye", "Pithecopus_ayeaye") %>%
+  str_replace_all("Phyllomedusa_nordestina", "Pithecopus_nordestinus") %>%
+  str_replace_all("Phyllomedusa_rohdei", "Pithecopus_rohdei") %>%
+  str_replace_all("Phyllomedusa_rohdei", "Pithecopus_rohdei") %>%
+  str_replace_all("Scinax_tripui","Ololygon_tripui") %>% 
+  str_replace_all("Scinax_cosenzai", "Ololygon_cosenzai") %>% 
+  str_replace_all("Scinax_strigilatus", "Ololygon_strigilata") %>% 
+  str_replace_all("Bokermannohyla_claresignata", "Boana_claresignata") %>%
+  str_replace_all("Hypsiboas_bandeirantes", "Boana_bandeirantes") %>%
+  str_replace_all("Hypsiboas_poaju","Boana_poaju")
+
+# merge
+# all species (with NA's)
+# amphibia_dataset <- left_join(species_climate_niche, amphibia_full_rates, by="Species")
+
+# only species with phylogeny
+amphibia_dataset <- inner_join(species_climate_niche, amphibia_full_rates, by="Species")
+
+View(amphibia_dataset)
+hist(amphibia_dataset$trait_rate)
+
+# conferind NA's
+count(anti_join(amphibia_dataset, amphibia_full_rates, by="Species")) # 56 spp losing
+#View(anti_join(amphibia_list, amphibia_full_rates, by="Species")) 
+```
+
+#### 1.2. Squamata
+```{r}
+```
+
+#### 1.3. Birds
+```{r}
+```
+
+#### 1.4. Mammals
+```{r}
+```
+
+### 2.0. PGLS / RPANDA
+```{r}
+```
+
+### 3.0. Plots
+```{r}
+```
