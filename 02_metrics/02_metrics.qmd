@@ -88,6 +88,9 @@ is.ultrametric(anura_phy_harm) # FALSE
 
 ###--- Squamata
 squamata_phy_full <- read.tree("full_data/squamata_fully.new_noNeg_minBL.newick")
+squamata_phy_full <- drop.tip(squamata_phy_full, "Sphenodon_punctatus")
+
+
 is.ultrametric(squamata_phy_full) # FALSE
 
 ###--- Birds
@@ -105,6 +108,7 @@ is.ultrametric(mammals_phy_harm) # TRUE
 ##### 0.2.3. Climate data
 
 Past data by Barreto et al., 2003 - PALEO-PGEM-Series: A spatial time series of the global climate over the last 5 million years (Plio-Pleistocene)
+
 ```{r}
 # PALEO-PGEM-Series - Barreto et al., 2023
 bio01_past <- read.table("climate_data/bio1_mean.txt", header = TRUE)
@@ -113,14 +117,14 @@ bio07_past <- read.table("climate_data/bio7_mean.txt", header = TRUE)
 bio11_past <- read.table("climate_data/bio11_mean.txt", header = TRUE)
 bio15_past <- read.table("climate_data/bio15_mean.txt", header = TRUE)
 bio17_past <- read.table("climate_data/bio17_mean.txt", header = TRUE)
-View(bio01_past)
 ```
 
 Convert dataframe into raster file
+
 ```{r}
 # convert to raster file
 bio01_past_r <- raster(extent(min(bio01_past$Long), max(bio01_past$Long), min(bio01_past$Lat), max(bio01_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
-bio01_past_r <- rasterize(bio01_past[,1:2], bio01_past_r, bio01_past[,3])
+bio01_past_r <- rasterize(bio01_past[,1:2], bio01_past_r, bio01_past[,3], fun=sum)
 
 bio04_past_r <- raster(extent(min(bio04_past$Long), max(bio04_past$Long), min(bio04_past$Lat), max(bio04_past$Lat)),resolution = 1, crs = "+proj=longlat +datum=WGS84")
 bio04_past_r <- rasterize(bio04_past[,1:2], bio04_past_r, bio04_past[,3])
@@ -139,6 +143,7 @@ bio17_past_r <- rasterize(bio17_past[,1:2], bio17_past_r, bio17_past[,3])
 ```
 
 Load present data
+
 ```{r}
 # Climate data from CHELSA
 Bio01 <- raster("climate_data/CHELSA_bio1_1981-2010_V.2.1.tif") # mean annual air temperature
@@ -165,7 +170,9 @@ mammals_shape <- readOGR("shapefiles/data_0.shp")
 ### 1.0. Data processing for BAMM analysis
 
 #### 1.1. Complete dataset
+
 ##### 1.1.1. Frogs
+
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
@@ -192,6 +199,7 @@ generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'tra
 ```
 
 Check MCMC run convergence
+
 ```{r}
 mcmcout <- read.table("BAMM/amphibia/mcmc_out.txt",sep=',', header=T)
 plot(mcmcout$logLik ~ mcmcout$generation)
@@ -203,6 +211,7 @@ effectiveSize(postburn$logLik)
 ```
 
 Using BAMM tools to retrieve trait evolution rate per tip
+
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
@@ -212,12 +221,14 @@ amphibia_phy_rooted <- ape::multi2di(amphibia_phy_ultra)
 edata_amphibia <- getEventData(amphibia_phy_rooted, "BAMM/amphibia/event_data.txt", burnin=0.25, type='trait')
 getwd()
 #plotRateThroughTime(edata_amphibia, ratetype="auto", smooth=TRUE)
+
 mean_anura <- getTipRates(edata_amphibia, statistic = 'mean')$beta.avg
 write.table(mean_anura, "amphibia_rates_fully.txt",quote = FALSE, col.names = FALSE,row.names = TRUE)
 #plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
 ##### 1.1.2. Squamatas
+
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 squamata_phy_ultra <- force.ultrametric(squamata_phy_full)
@@ -225,8 +236,11 @@ write.tree(squamata_phy_ultra, "BAMM/squamata/squamata_fully_bamm.new")
 
 # preparing traits
 # Squamata
+squamata_traits_full <- squamata_traits_full[-1,]
+
 svl_squamata <- as.numeric(squamata_traits_full$V2)
 names(svl_squamata) <- squamata_traits_full$V1
+
 
 # setBAMMprior para achar os valores de priors
 priors <- setBAMMpriors(phy = squamata_phy_ultra, traits = svl_squamata, outfile = NULL)
@@ -235,17 +249,20 @@ getwd()
 generateControlFile(file = 'BAMM/squamata/controlfile_squamata.txt', type = 'trait', params = list(
     treefile = 'squamata_fully_bamm.new',
     traitfile='squamata_traits_fully.txt',
-    numberOfGenerations = '12000000',
+    numberOfGenerations = '4500000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
     betaInitPrior = as.numeric(priors['betaInitPrior']),
     useObservedMinMaxAsTraitPriors = '1',
-    expectedNumberOfShifts = as.numeric(priors['expectedNumberOfShifts'])))
+    expectedNumberOfShifts = as.numeric(50)))
+# minCladeSizeForShift = 10,
+# poissonRatePrior = 0.02,
 ```
 
 Check MCMC run convergence
+
 ```{r}
-mcmcout <- read.table("BAMM/squamata/teste/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/squamata/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -260,25 +277,29 @@ effectiveSize(postburn$logLik)
 ```
 
 Exploring BAMMTools
+
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events_squamata <- read.table("BAMM/squamata/teste/event_data.txt", sep=",", header=T)
+events_squamata <- read.table("BAMM/squamata/event_data.txt", sep=",", header=T)
 squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
 
 # plot rate through time
-edata_squamata <- getEventData(squamata_phy_rooted, events_squamata, burnin=0.25, type='trait')
+edata_squamata <- getEventData(squamata_phy_rooted, events_squamata, burnin=0.8, type='trait')
 
 plotRateThroughTime(edata_squamata, ratetype="auto", smooth=TRUE)
 
 # trait evolution rate per species
 mean_squamata <- getTipRates(edata_squamata, returnNetDiv = FALSE,
                        statistic = 'mean')$beta.avg
+
+hist(mean_squamata)
 # plot
 #plot.bammdata(edata_squamata, lwd=1, method="polar", pal="temperature")
 ```
 
 ##### 1.1.3. Birds
+
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 birds_phy_ultra <- force.ultrametric(birds_phy_full)
@@ -304,8 +325,9 @@ generateControlFile(file = 'BAMM/birds/controlfile_birds.txt', type = 'trait', p
 ```
 
 Check MCMC run convergence
+
 ```{r}
-mcmcout <- read.table("BAMM/birds/birds/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/birds/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
@@ -319,7 +341,7 @@ effectiveSize(postburn$logLik)
 #     R will not execute these lines - they are only for reference!
 ```
 
-```{r} 
+```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
 events.birds <- read.table("BAMM/birds/birds/event_data.txt", sep=',', header=T)
@@ -327,6 +349,9 @@ birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
 edata_birds <- getEventData(birds_phy_rooted, events.birds, burnin=0.25, type='trait')
 
 #plotRateThroughTime(edata_birds, ratetype="auto", smooth=TRUE)
+time_birds <- getRateThroughTimeMatrix(edata_birds)
+
+time_birds$times
 
 mean_birds <- getTipRates(edata_birds, returnNetDiv = FALSE,
                        statistic = 'mean')$beta.avg
@@ -335,6 +360,7 @@ write.table(mean_birds, "birds_rates_fully.txt",quote = FALSE, col.names = FALSE
 ```
 
 ##### 1.1.4. Mammals
+
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 mammals_phy_ultra <- force.ultrametric(mammals_phy_full)
@@ -360,6 +386,7 @@ generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait
 ```
 
 Check MCMC run convergence
+
 ```{r}
 mcmcout <- read.table("BAMM/mammals/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
@@ -376,6 +403,7 @@ effectiveSize(postburn$logLik)
 ```
 
 BAMMTools exploring
+
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
@@ -393,6 +421,7 @@ plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 #### 1.2 Harmonized dataset
 
 ##### 1.2.1. Frogs
+
 ```{r}
 # preparing data for setBAMMpriors
 svl_amphibia_harm <- as.numeric(anura_traits_harm$V2)
@@ -419,6 +448,7 @@ generateControlFile(file = 'BAMM/amphibia_harm/controlfile_amphibia.txt', type =
 ```
 
 Check MCMC run convergence
+
 ```{r}
 mcmcout <- read.table("BAMM/amphibia_harm/mcmc_out.txt",sep=',', header=T)
 head(mcmcout)
@@ -447,6 +477,7 @@ plot.bammdata(edata, lwd=1, method="polar", pal="temperature")
 ```
 
 ##### 1.2.2. Mammals
+
 ```{r}
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 mammals_phy_ultra_harm <- force.ultrametric(mammals_phy_harm)
@@ -464,7 +495,7 @@ generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = '
                     params = list(treefile = 'mammals_harm_bamm.new',
                                   traitfile='mammals_traits_harm.txt',
                                   numberOfGenerations = '10000000',
-                                  mcmcWriteFreq = '1000',
+                                  mcmcWriteFreq = '10000',
                                   overwrite = '1',
                                   useObservedMinMaxAsTraitPriors = as.numeric(priors['useObservedMinMaxAsTraitPriors']),
                                   betaShiftPrior = as.numeric(priors['betaShiftPrior']),
@@ -474,11 +505,11 @@ generateControlFile(file = 'BAMM/mammals_harm/controlfile_mammals.txt', type = '
 ```
 
 Check MCMC run convergence
+
 ```{r}
 mcmcout <- read.table("BAMM/mammals_harm/mcmc_out.txt",sep=',', header=T)
 plot(mcmcout$logLik ~ mcmcout$generation)
-
-burnstart <- floor(0.25 * nrow(mcmcout))
+burnstart <- floor(0.6 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
 
 effectiveSize(postburn$N_shifts)
@@ -489,6 +520,7 @@ effectiveSize(postburn$logLik)
 ```
 
 BAMMTools exploring
+
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
@@ -504,15 +536,21 @@ plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
 ### 2.0. Lets add var
+
 #### 2.1. Past climate
+
 ##### 2.1.1. Frogs
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 anura_presaus <- lets.presab(anura_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
 projection(anura_presaus$Richness_Raster) <- projection(bio17_past_r)
-
-# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
-anura_temp_median_01 <- lets.addvar(anura_presaus, bio01_past_r, fun = median, onlyvar = FALSE)
+projection(rast) <- projection(anura_presaus$Richness_Raster)
+# lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean) 
+# climate niche position
+res(rast) <- c(1,1)
+plot(rast)
+anura_temp_median_01 <- lets.addvar(anura_presaus, bio01_past_r, fun = median, onlyvar = TRUE)
 anura_temp_median_04 <- lets.addvar(anura_presaus, bio04_past_r, fun = median, onlyvar = TRUE) 
 anura_temp_median_07 <- lets.addvar(anura_presaus, bio07_past_r, fun = median, onlyvar = TRUE)
 anura_temp_median_11 <- lets.addvar(anura_presaus, bio11_past_r, fun = median, onlyvar = TRUE)
@@ -523,14 +561,61 @@ anura_temp_median_17 <- lets.addvar(anura_presaus, bio17_past_r, fun = median, o
 anura_temp_median <- cbind(anura_temp_median_01, anura_temp_median_04, anura_temp_median_07, anura_temp_median_11, anura_temp_median_15, anura_temp_median_17)
 
 # Now, we need to summarise the climate variables per specie
-temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = 2625:2630, fun = median) 
+temp_median_anura <- lets.summarizer2(anura_temp_median,  pos = 2625:2630, fun = min) 
 
 colnames(temp_median_anura) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
                                  "Bio11_past", "Bio15_past", "Bio17_past")
 glimpse(temp_median_anura)
+
+# climate niche range
+# min
+anura_temp_min_01_past <- lets.addvar(anura_presaus, bio01_past_r, fun = min, onlyvar = FALSE)
+anura_temp_min_04_past <- lets.addvar(anura_presaus, bio04_past_r, fun = min, onlyvar = TRUE)
+anura_temp_min_07_past <- lets.addvar(anura_presaus, bio07_past_r, fun = min, onlyvar = TRUE)
+anura_temp_min_11_past <- lets.addvar(anura_presaus, bio11_past_r, fun = min, onlyvar = TRUE)
+anura_temp_min_15_past <- lets.addvar(anura_presaus, bio15_past_r, fun = min, onlyvar = TRUE)
+anura_temp_min_17_past <- lets.addvar(anura_presaus, bio17_past_r, fun = min, onlyvar = TRUE)
+# max
+anura_temp_max_01_past <- lets.addvar(anura_presaus, bio01_past_r, fun =max, onlyvar = FALSE)
+anura_temp_max_04_past <- lets.addvar(anura_presaus, bio04_past_r, fun = max, onlyvar = TRUE)
+anura_temp_max_07_past <- lets.addvar(anura_presaus, bio07_past_r, fun =max, onlyvar = TRUE)
+anura_temp_max_11_past <- lets.addvar(anura_presaus, bio11_past_r, fun =max, onlyvar = TRUE)
+anura_temp_max_15_past <- lets.addvar(anura_presaus, bio15_past_r, fun =max, onlyvar = TRUE)
+anura_temp_max_17_past <- lets.addvar(anura_presaus, bio17_past_r, fun =max, onlyvar = TRUE)
+
+# range
+# min
+anura_temp_min_past <- cbind(anura_temp_min_01_past, anura_temp_min_04_past, anura_temp_min_07_past, anura_temp_min_11_past, anura_temp_min_15_past, anura_temp_min_17_past)
+# max
+anura_temp_max_past <- cbind(anura_temp_max_01_past, anura_temp_max_04_past, anura_temp_max_07_past, anura_temp_max_11_past, anura_temp_max_15_past, anura_temp_max_17_past)
+
+# min
+temp_min_anura_past <- lets.summarizer2(anura_temp_min_past,  pos = 2625:2630, fun = min) 
+colnames(temp_min_anura_past) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+                                 "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
+# max
+temp_max_anura_past <- lets.summarizer2(anura_temp_max_past,  pos = 2625:2630, fun = max) 
+colnames(temp_max_anura_past) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+                                 "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_amphibia_past <- inner_join(temp_min_anura_past, temp_max_anura_past, by="Species") 
+
+temp_range_anura_past <- df_merge_amphibia_past %>% 
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
+  mutate(Bio07_range_past = as.numeric(Bio07_past_max) - as.numeric(Bio07_past_min)) %>%
+  mutate(Bio11_range_past = as.numeric(Bio11_past_max) - as.numeric(Bio11_past_min)) %>%
+  mutate(Bio15_range_past = as.numeric(Bio15_past_max) - as.numeric(Bio15_past_min)) %>%
+  mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
+  select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
+         Bio11_range_past,Bio15_range_past, Bio17_range_past)
 ```
 
 ##### 2.1.2. Squamata
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
@@ -552,10 +637,58 @@ temp_median_squamata <- lets.summarizer2(squamata_temp_median,  pos = 1049:1054,
 
 colnames(temp_median_squamata) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
                                  "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
+#glimpse(temp_median_squamata)
+
+###---
+# climate niche range
+# min
+squamata_temp_min_01_past <- lets.addvar(squamata_presaus, bio01_past_r, fun = min, onlyvar = FALSE)
+squamata_temp_min_04_past <- lets.addvar(squamata_presaus, bio04_past_r, fun = min, onlyvar = TRUE)
+squamata_temp_min_07_past <- lets.addvar(squamata_presaus, bio07_past_r, fun = min, onlyvar = TRUE)
+squamata_temp_min_11_past <- lets.addvar(squamata_presaus, bio11_past_r, fun = min, onlyvar = TRUE)
+squamata_temp_min_15_past <- lets.addvar(squamata_presaus, bio15_past_r, fun = min, onlyvar = TRUE)
+squamata_temp_min_17_past <- lets.addvar(squamata_presaus, bio17_past_r, fun = min, onlyvar = TRUE)
+# max
+squamata_temp_max_01_past <- lets.addvar(squamata_presaus, bio01_past_r, fun =max, onlyvar = FALSE)
+squamata_temp_max_04_past <- lets.addvar(squamata_presaus, bio04_past_r, fun =max, onlyvar = TRUE)
+squamata_temp_max_07_past <- lets.addvar(squamata_presaus, bio07_past_r, fun =max, onlyvar = TRUE)
+squamata_temp_max_11_past <- lets.addvar(squamata_presaus, bio11_past_r, fun =max, onlyvar = TRUE)
+squamata_temp_max_15_past <- lets.addvar(squamata_presaus, bio15_past_r, fun =max, onlyvar = TRUE)
+squamata_temp_max_17_past <- lets.addvar(squamata_presaus, bio17_past_r, fun =max, onlyvar = TRUE)
+
+# range
+# min
+squamata_temp_min_past <- cbind(squamata_temp_min_01_past, squamata_temp_min_04_past, squamata_temp_min_07_past, squamata_temp_min_11_past, squamata_temp_min_15_past, squamata_temp_min_17_past)
+# max
+squamata_temp_max_past <- cbind(squamata_temp_max_01_past, squamata_temp_max_04_past, squamata_temp_max_07_past, squamata_temp_max_11_past, squamata_temp_max_15_past, squamata_temp_max_17_past)
+
+# min
+temp_min_squamata_past <- lets.summarizer2(squamata_temp_min_past,  pos = 1049:1054, fun = min) 
+colnames(temp_min_squamata_past) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+                                 "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
+# max
+temp_max_squamata_past <- lets.summarizer2(squamata_temp_max_past,  pos = 1049:1054, fun = max) 
+colnames(temp_max_squamata_past) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+                                 "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_squamata_past <- inner_join(temp_min_squamata_past, temp_max_squamata_past, by="Species") 
+
+temp_range_squamata_past <- df_merge_squamata_past %>% 
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
+  mutate(Bio07_range_past = as.numeric(Bio07_past_max) - as.numeric(Bio07_past_min)) %>%
+  mutate(Bio11_range_past = as.numeric(Bio11_past_max) - as.numeric(Bio11_past_min)) %>%
+  mutate(Bio15_range_past = as.numeric(Bio15_past_max) - as.numeric(Bio15_past_min)) %>%
+  mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
+  select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
+         Bio11_range_past,Bio15_range_past, Bio17_range_past)
 ```
 
 ##### 2.1.3. Birds
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 path.birds <- system.file("extdata", package = "letsR")
@@ -584,9 +717,57 @@ temp_median_birds <- lets.summarizer2(birds_temp_median,  pos = 1526:1531, fun =
 
 colnames(temp_median_birds) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past","Bio11_past", "Bio15_past", "Bio17_past")
 glimpse(temp_median_birds)
+
+###---
+# climate niche range
+# min
+birds_temp_min_01_past <- lets.addvar(birds_presaus, bio01_past_r, fun = min, onlyvar = FALSE)
+birds_temp_min_04_past <- lets.addvar(birds_presaus, bio04_past_r, fun = min, onlyvar = TRUE)
+birds_temp_min_07_past <- lets.addvar(birds_presaus, bio07_past_r, fun = min, onlyvar = TRUE)
+birds_temp_min_11_past <- lets.addvar(birds_presaus, bio11_past_r, fun = min, onlyvar = TRUE)
+birds_temp_min_15_past <- lets.addvar(birds_presaus, bio15_past_r, fun = min, onlyvar = TRUE)
+birds_temp_min_17_past <- lets.addvar(birds_presaus, bio17_past_r, fun = min, onlyvar = TRUE)
+# max
+birds_temp_max_01_past <- lets.addvar(birds_presaus, bio01_past_r, fun =max, onlyvar = FALSE)
+birds_temp_max_04_past <- lets.addvar(birds_presaus, bio04_past_r, fun = max, onlyvar = TRUE)
+birds_temp_max_07_past <- lets.addvar(birds_presaus, bio07_past_r, fun =max, onlyvar = TRUE)
+birds_temp_max_11_past <- lets.addvar(birds_presaus, bio11_past_r, fun =max, onlyvar = TRUE)
+birds_temp_max_15_past <- lets.addvar(birds_presaus, bio15_past_r, fun =max, onlyvar = TRUE)
+birds_temp_max_17_past <- lets.addvar(birds_presaus, bio17_past_r, fun =max, onlyvar = TRUE)
+
+# range
+# min
+birds_temp_min_past <- cbind(birds_temp_min_01_past, birds_temp_min_04_past, birds_temp_min_07_past, birds_temp_min_11_past, birds_temp_min_15_past, birds_temp_min_17_past)
+# max
+birds_temp_max_past <- cbind(birds_temp_max_01_past, birds_temp_max_04_past,birds_temp_max_07_past, birds_temp_max_11_past,birds_temp_max_15_past, birds_temp_max_17_past)
+
+# min
+temp_min_birds_past <- lets.summarizer2(birds_temp_min_past,  pos = 1049:1054, fun = min) 
+colnames(temp_min_birds_present) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+                                 "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
+# max
+temp_max_birds_past <- lets.summarizer2(birds_temp_max_past,  pos = 1049:1054, fun = max) 
+colnames(temp_max_birds_present) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+                                 "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_birds_past <- inner_join(temp_min_birds_past, temp_max_birds_past, by="Species") 
+
+temp_range_birds_present <- df_merge_birds_past %>% 
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
+  mutate(Bio07_range_past = as.numeric(Bio07_past_max) - as.numeric(Bio07_past_min)) %>%
+  mutate(Bio11_range_past = as.numeric(Bio11_past_max) - as.numeric(Bio11_past_min)) %>%
+  mutate(Bio15_range_past = as.numeric(Bio15_past_max) - as.numeric(Bio15_past_min)) %>%
+  mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
+  select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
+         Bio11_range_past,Bio15_range_past, Bio17_range_past)
 ```
 
 ##### 2.1.4. Mammals
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 mammals_presaus <- lets.presab(mammals_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
@@ -607,15 +788,63 @@ mammals_temp_median <- cbind(mammals_temp_median_01, mammals_temp_median_04, mam
 temp_median_mammals <- lets.summarizer2(mammals_temp_median,  pos = 1258:1263, fun = median) 
 colnames(temp_median_mammals) <- c("Species", "Bio01_past", "Bio04_past", "Bio07_past",
                                  "Bio11_past", "Bio15_past", "Bio17_past")
-glimpse(temp_median_squamata)
-```
+glimpse(temp_median_mammals)
 
+###---
+# climate niche range
+# min
+mammals_temp_min_01_past <- lets.addvar(mammals_presaus, bio01_past_r, fun = min, onlyvar = FALSE)
+mammals_temp_min_04_past <- lets.addvar(mammals_presaus, bio04_past_r, fun = min, onlyvar = TRUE)
+mammals_temp_min_07_past <- lets.addvar(mammals_presaus, bio07_past_r, fun = min, onlyvar = TRUE)
+mammals_temp_min_11_past <- lets.addvar(mammals_presaus, bio11_past_r, fun = min, onlyvar = TRUE)
+mammals_temp_min_15_past <- lets.addvar(mammals_presaus, bio15_past_r, fun = min, onlyvar = TRUE)
+mammals_temp_min_17_past <- lets.addvar(mammals_presaus, bio17_past_r, fun = min, onlyvar = TRUE)
+# max
+mammals_temp_max_01_past <- lets.addvar(mammals_presaus, bio01_past_r, fun =max, onlyvar = FALSE)
+mammals_temp_max_04_past <- lets.addvar(mammals_presaus, bio04_past_r, fun = max, onlyvar = TRUE)
+mammals_temp_max_07_past <- lets.addvar(mammals_presaus, bio07_past_r, fun =max, onlyvar = TRUE)
+mammals_temp_max_11_past <- lets.addvar(mammals_presaus, bio11_past_r, fun =max, onlyvar = TRUE)
+mammals_temp_max_15_past <- lets.addvar(mammals_presaus, bio15_past_r, fun =max, onlyvar = TRUE)
+mammals_temp_max_17_past <- lets.addvar(mammals_presaus, bio17_past_r, fun =max, onlyvar = TRUE)
+
+# range
+# min
+mammals_temp_min_past <- cbind(mammals_temp_min_01_past, mammals_temp_min_04_past, mammals_temp_min_07_past, mammals_temp_min_11_past, mammals_temp_min_15_past, mammals_temp_min_17_past)
+# max
+mammals_temp_max_past <- cbind(mammals_temp_max_01_past, mammals_temp_max_04_past, mammals_temp_max_07_past, mammals_temp_max_11_past, mammals_temp_max_15_past, mammals_temp_max_17_past)
+
+# min
+temp_min_mammals_past <- lets.summarizer2(mammals_temp_min_past,  pos = 1049:1054, fun = min) 
+colnames(temp_min_mammals_present) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+                                 "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
+# max
+temp_max_mammals_past <- lets.summarizer2(mammals_temp_max_past,  pos = 1049:1054, fun = max) 
+colnames(temp_max_mammals_present) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+                                 "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_mammals_past <- inner_join(temp_min_mammals_past, temp_max_mammals_past, by="Species") 
+
+temp_range_mammals_present <- df_merge_mammals_past %>% 
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
+  mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
+  mutate(Bio07_range_past = as.numeric(Bio07_past_max) - as.numeric(Bio07_past_min)) %>%
+  mutate(Bio11_range_past = as.numeric(Bio11_past_max) - as.numeric(Bio11_past_min)) %>%
+  mutate(Bio15_range_past = as.numeric(Bio15_past_max) - as.numeric(Bio15_past_min)) %>%
+  mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
+  select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
+         Bio11_range_past,Bio15_range_past, Bio17_range_past)
+```
 
 #### 2.2. Present climate
 
 ##### 2.2.1. Frogs
+
 ```{r}
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
+# climate niche position
 projection(anura_presaus$Richness_Raster) <- projection(Bio01)
 anura_temp_median_01_present <- lets.addvar(anura_presaus, Bio01, fun = median, onlyvar = FALSE)
 anura_temp_median_04_present <- lets.addvar(anura_presaus, Bio04, fun = median, onlyvar = TRUE)
@@ -625,18 +854,66 @@ anura_temp_median_15_present <- lets.addvar(anura_presaus, Bio15, fun = median, 
 anura_temp_median_17_present <- lets.addvar(anura_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
+# median
 anura_temp_median_present <- cbind(anura_temp_median_01_present, anura_temp_median_04_present, anura_temp_median_07_present, anura_temp_median_11_present, anura_temp_median_15_present, anura_temp_median_17_present)
 View(anura_temp_median_present)
 
 # Now, we need to summarise the climate variables per specie
+# median
 temp_median_anura_present <- lets.summarizer2(anura_temp_median_present,  pos = 2625:2630, fun = median) 
-
 colnames(temp_median_anura_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
                                  "Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_anura_present)
+
+# climate niche range
+# min
+anura_temp_min_01_present <- lets.addvar(anura_presaus, Bio01, fun = min, onlyvar = FALSE)
+anura_temp_min_04_present <- lets.addvar(anura_presaus,Bio04, fun = min, onlyvar = TRUE)
+anura_temp_min_07_present <- lets.addvar(anura_presaus, Bio07, fun = min, onlyvar = TRUE)
+anura_temp_min_11_present <- lets.addvar(anura_presaus, Bio11, fun = min, onlyvar = TRUE)
+anura_temp_min_15_present <- lets.addvar(anura_presaus, Bio15, fun = min, onlyvar = TRUE)
+anura_temp_min_17_present <- lets.addvar(anura_presaus, Bio17, fun = min, onlyvar = TRUE)
+# max
+anura_temp_max_01_present <- lets.addvar(anura_presaus, Bio01, fun =max, onlyvar = FALSE)
+anura_temp_max_04_present <- lets.addvar(anura_presaus,Bio04, fun = max, onlyvar = TRUE)
+anura_temp_max_07_present <- lets.addvar(anura_presaus, Bio07, fun =max, onlyvar = TRUE)
+anura_temp_max_11_present <- lets.addvar(anura_presaus, Bio11, fun =max, onlyvar = TRUE)
+anura_temp_max_15_present <- lets.addvar(anura_presaus, Bio15, fun =max, onlyvar = TRUE)
+anura_temp_max_17_present <- lets.addvar(anura_presaus, Bio17, fun =max, onlyvar = TRUE)
+
+# range
+# min
+anura_temp_min_present <- cbind(anura_temp_min_01_present, anura_temp_min_04_present, anura_temp_min_07_present, anura_temp_min_11_present, anura_temp_min_15_present, anura_temp_min_17_present)
+# max
+anura_temp_max_present <- cbind(anura_temp_max_01_present, anura_temp_max_04_present, anura_temp_max_07_present, anura_temp_max_11_present, anura_temp_max_15_present, anura_temp_max_17_present)
+
+# min
+temp_min_anura_present <- lets.summarizer2(anura_temp_min_present,  pos = 2625:2630, fun = min) 
+colnames(temp_min_anura_present) <- c("Species", "Bio01_present_min", "Bio04_present_min", "Bio07_present_min",
+                                 "Bio11_present_min", "Bio15_present_min", "Bio17_present_min")
+# max
+temp_max_anura_present <- lets.summarizer2(anura_temp_max_present,  pos = 2625:2630, fun = max) 
+colnames(temp_max_anura_present) <- c("Species", "Bio01_present_max", "Bio04_present_max", "Bio07_present_max",
+                                 "Bio11_present_max", "Bio15_present_max", "Bio17_present_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge <- inner_join(temp_min_anura_present, temp_max_anura_present, by="Species") 
+
+temp_range_anura_present <- df_merge %>% 
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio04_range_present = as.numeric(Bio04_present_max) - as.numeric(Bio04_present_min)) %>%
+  mutate(Bio07_range_present = as.numeric(Bio07_present_max) - as.numeric(Bio07_present_min)) %>%
+  mutate(Bio11_range_present = as.numeric(Bio11_present_max) - as.numeric(Bio11_present_min)) %>%
+  mutate(Bio15_range_present = as.numeric(Bio15_present_max) - as.numeric(Bio15_present_min)) %>%
+  mutate(Bio17_range_present = as.numeric(Bio17_present_max) - as.numeric(Bio17_present_min)) %>%
+  select(Species, Bio01_range_present,Bio04_range_present,Bio07_range_present,
+         Bio11_range_present,Bio15_range_present, Bio17_range_present)
 ```
 
 ##### 2.2.2. Squamata
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 #squamata_presaus <- lets.presab(squamata_shape , xmn = -180, xmx = 180, ymn = -60, ymx = 90)
@@ -658,10 +935,56 @@ temp_median_squamata_present <- lets.summarizer2(squamata_temp_median_present,  
 colnames(temp_median_squamata_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
                                  "Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_squamata_present)
+
+# climate niche range
+# min
+squamata_temp_min_01_present <- lets.addvar(squamata_presaus, Bio01, fun = min, onlyvar = FALSE)
+squamata_temp_min_04_present <- lets.addvar(squamata_presaus,Bio04, fun = min, onlyvar = TRUE)
+squamata_temp_min_07_present <- lets.addvar(squamata_presaus, Bio07, fun = min, onlyvar = TRUE)
+squamata_temp_min_11_present <- lets.addvar(squamata_presaus, Bio11, fun = min, onlyvar = TRUE)
+squamata_temp_min_15_present <- lets.addvar(squamata_presaus, Bio15, fun = min, onlyvar = TRUE)
+squamata_temp_min_17_present <- lets.addvar(squamata_presaus, Bio17, fun = min, onlyvar = TRUE)
+# max
+squamata_temp_max_01_present <- lets.addvar(squamata_presaus, Bio01, fun =max, onlyvar = FALSE)
+squamata_temp_max_04_present <- lets.addvar(squamata_presaus,Bio04, fun = max, onlyvar = TRUE)
+squamata_temp_max_07_present <- lets.addvar(squamata_presaus, Bio07, fun =max, onlyvar = TRUE)
+squamata_temp_max_11_present <- lets.addvar(squamata_presaus, Bio11, fun =max, onlyvar = TRUE)
+squamata_temp_max_15_present <- lets.addvar(squamata_presaus, Bio15, fun =max, onlyvar = TRUE)
+squamata_temp_max_17_present <- lets.addvar(squamata_presaus, Bio17, fun =max, onlyvar = TRUE)
+
+# range
+# min
+squamata_temp_min_present <- cbind(squamata_temp_min_01_present, squamata_temp_min_04_present, squamata_temp_min_07_present, squamata_temp_min_11_present, squamata_temp_min_15_present, squamata_temp_min_17_present)
+# max
+squamata_temp_max_present <- cbind(squamata_temp_max_01_present, squamata_temp_max_04_present, squamata_temp_max_07_present, squamata_temp_max_11_present, squamata_temp_max_15_present, squamata_temp_max_17_present)
+
+# min
+temp_min_squamata_present <- lets.summarizer2(squamata_temp_min_present,  pos = 1049:1054, fun = min) 
+colnames(temp_min_squamata_present) <- c("Species", "Bio01_present_min", "Bio04_present_min", "Bio07_present_min",
+                                 "Bio11_present_min", "Bio15_present_min", "Bio17_present_min")
+# max
+temp_max_squamata_present <- lets.summarizer2(squamata_temp_max_present,  pos = 1049:1054, fun = max) 
+colnames(temp_max_squamata_present) <- c("Species", "Bio01_present_max", "Bio04_present_max", "Bio07_present_max",
+                                 "Bio11_present_max", "Bio15_present_max", "Bio17_present_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_squamata <- inner_join(temp_min_squamata_present, temp_max_squamata_present, by="Species") 
+
+temp_range_squamata_present <- df_merge_squamata %>% 
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio04_range_present = as.numeric(Bio04_present_max) - as.numeric(Bio04_present_min)) %>%
+  mutate(Bio07_range_present = as.numeric(Bio07_present_max) - as.numeric(Bio07_present_min)) %>%
+  mutate(Bio11_range_present = as.numeric(Bio11_present_max) - as.numeric(Bio11_present_min)) %>%
+  mutate(Bio15_range_present = as.numeric(Bio15_present_max) - as.numeric(Bio15_present_min)) %>%
+  mutate(Bio17_range_present = as.numeric(Bio17_present_max) - as.numeric(Bio17_present_min)) %>%
+  select(Species, Bio01_range_present,Bio04_range_present,Bio07_range_present,
+         Bio11_range_present,Bio15_range_present, Bio17_range_present)
 ```
 
-
 ##### 2.2.3. Birds
+
 ```{r}
 # Creating PresenceAusence object for lets.addvar
 #birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90)
@@ -683,6 +1006,53 @@ temp_median_birds_present <- lets.summarizer2(birds_temp_median_present,  pos = 
 
 colnames(temp_median_birds_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present","Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_birds_present)
+
+###
+# climate niche range
+# min
+birds_temp_min_01_present <- lets.addvar(birds_presaus, Bio01, fun = min, onlyvar = FALSE)
+birds_temp_min_04_present <- lets.addvar(birds_presaus,Bio04, fun = min, onlyvar = TRUE)
+birds_temp_min_07_present <- lets.addvar(birds_presaus, Bio07, fun = min, onlyvar = TRUE)
+birds_temp_min_11_present <- lets.addvar(birds_presaus, Bio11, fun = min, onlyvar = TRUE)
+birds_temp_min_15_present <- lets.addvar(birds_presaus, Bio15, fun = min, onlyvar = TRUE)
+birds_temp_min_17_present <- lets.addvar(birds_presaus, Bio17, fun = min, onlyvar = TRUE)
+# max
+birds_temp_max_01_present <- lets.addvar(birds_presaus, Bio01, fun =max, onlyvar = FALSE)
+birds_temp_max_04_present <- lets.addvar(birds_presaus,Bio04, fun = max, onlyvar = TRUE)
+birds_temp_max_07_present <- lets.addvar(birds_presaus, Bio07, fun =max, onlyvar = TRUE)
+birds_temp_max_11_present <- lets.addvar(birds_presaus, Bio11, fun =max, onlyvar = TRUE)
+birds_temp_max_15_present <- lets.addvar(birds_presaus, Bio15, fun =max, onlyvar = TRUE)
+birds_temp_max_17_present <- lets.addvar(birds_presaus, Bio17, fun =max, onlyvar = TRUE)
+
+# range
+# min
+birds_temp_min_present <- cbind(birds_temp_min_01_present, birds_temp_min_04_present, birds_temp_min_07_present, birds_temp_min_11_present, birds_temp_min_15_present, birds_temp_min_17_present)
+# max
+birds_temp_max_present <- cbind(birds_temp_max_01_present, birds_temp_max_04_present, birds_temp_max_07_present, birds_temp_max_11_present, birds_temp_max_15_present, birds_temp_max_17_present)
+
+# min
+temp_min_birds_present <- lets.summarizer2(birds_temp_min_present,  pos = 1526:1531, fun = min) 
+colnames(temp_min_birds_present) <- c("Species", "Bio01_present_min", "Bio04_present_min", "Bio07_present_min",
+                                 "Bio11_present_min", "Bio15_present_min", "Bio17_present_min")
+# max
+temp_max_birds_present <- lets.summarizer2(birds_temp_max_present,  pos = 1526:1531, fun = max) 
+colnames(temp_max_birds_present) <- c("Species", "Bio01_present_max", "Bio04_present_max", "Bio07_present_max",
+                                 "Bio11_present_max", "Bio15_present_max", "Bio17_present_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_birds <- inner_join(temp_min_birds_present, temp_max_birds_present, by="Species") 
+
+temp_range_birds_present <- df_merge_birds %>% 
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio04_range_present = as.numeric(Bio04_present_max) - as.numeric(Bio04_present_min)) %>%
+  mutate(Bio07_range_present = as.numeric(Bio07_present_max) - as.numeric(Bio07_present_min)) %>%
+  mutate(Bio11_range_present = as.numeric(Bio11_present_max) - as.numeric(Bio11_present_min)) %>%
+  mutate(Bio15_range_present = as.numeric(Bio15_present_max) - as.numeric(Bio15_present_min)) %>%
+  mutate(Bio17_range_present = as.numeric(Bio17_present_max) - as.numeric(Bio17_present_min)) %>%
+  select(Species, Bio01_range_present,Bio04_range_present,Bio07_range_present,
+         Bio11_range_present,Bio15_range_present, Bio17_range_present)
 ```
 
 ##### 2.2.4. Mammals
@@ -701,19 +1071,71 @@ mammals_temp_median_15_present <- lets.addvar(mammals_presaus, Bio15, fun = medi
 mammals_temp_median_17_present <- lets.addvar(mammals_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-mammals_temp_median_present <- cbind(mammals_temp_median_01_present, mammals_temp_median_04_present, mammals_temp_median_07_present, mammals_temp_median_11_present, mammals_temp_median_15_present, mammals_temp_median_17_present)
-View(mammals_temp_median_present)
+mammals_temp_median_present <- cbind(mammals_temp_median_01_present, mammals_temp_median_04_present, mammals_temp_median_07_present, mammals_temp_median_11_present, mammals_temp_median_15_present, mammals_temp_median_17_present
+
 # Now, we need to summarise the climate variables per specie
 temp_median_mammals_present <- lets.summarizer2(mammals_temp_median_present,  pos = 1258:1263, fun = median)
 colnames(temp_median_mammals_present) <- c("Species", "Bio01_present", "Bio04_present", "Bio07_present",
                                  "Bio11_present", "Bio15_present", "Bio17_present")
 glimpse(temp_median_mammals_present)
+
+###
+# climate niche range
+# min
+mammals_temp_min_01_present <- lets.addvar(mammals_presaus, Bio01, fun = min, onlyvar = FALSE)
+mammals_temp_min_04_present <- lets.addvar(mammals_presaus,Bio04, fun = min, onlyvar = TRUE)
+mammals_temp_min_07_present <- lets.addvar(mammals_presaus, Bio07, fun = min, onlyvar = TRUE)
+mammals_temp_min_11_present <- lets.addvar(mammals_presaus, Bio11, fun = min, onlyvar = TRUE)
+mammals_temp_min_15_present <- lets.addvar(mammals_presaus, Bio15, fun = min, onlyvar = TRUE)
+mammals_temp_min_17_present <- lets.addvar(mammals_presaus, Bio17, fun = min, onlyvar = TRUE)
+# max
+mammals_temp_max_01_present <- lets.addvar(mammals_presaus, Bio01, fun =max, onlyvar = FALSE)
+mammals_temp_max_04_present <- lets.addvar(mammals_presaus,Bio04, fun = max, onlyvar = TRUE)
+mammals_temp_max_07_present <- lets.addvar(mammals_presaus, Bio07, fun =max, onlyvar = TRUE)
+mammals_temp_max_11_present <- lets.addvar(mammals_presaus, Bio11, fun =max, onlyvar = TRUE)
+mammals_temp_max_15_present <- lets.addvar(mammals_presaus, Bio15, fun =max, onlyvar = TRUE)
+mammals_temp_max_17_present <- lets.addvar(mammals_presaus, Bio17, fun =max, onlyvar = TRUE)
+
+ncol(mammals_temp_max_01_present)
+
+head(mammals_temp_max_01_present[1,1258])
+head(mammals_temp_min_01_present[1,1258])
+
+View(mammals_temp_max_01_present)
+# range
+# min
+mammals_temp_min_present <- cbind(mammals_temp_min_01_present, mammals_temp_min_04_present, mammals_temp_min_07_present, mammals_temp_min_11_present, mammals_temp_min_15_present, mammals_temp_min_17_present)
+# max
+mammals_temp_max_present <- cbind(mammals_temp_max_01_present, mammals_temp_max_04_present, mammals_temp_max_07_present, mammals_temp_max_11_present, mammals_temp_max_15_present, mammals_temp_max_17_present)
+
+# min
+temp_min_mammals_present <- lets.summarizer2(mammals_temp_min_present,  pos = 1258:1263, fun = min) 
+colnames(temp_min_mammals_present) <- c("Species", "Bio01_present_min", "Bio04_present_min", "Bio07_present_min","Bio11_present_min", "Bio15_present_min", "Bio17_present_min")
+# max
+temp_max_mammals_present <- lets.summarizer2(mammals_temp_max_present,  pos = 1258:1263, fun = max) 
+colnames(temp_max_mammals_present) <- c("Species", "Bio01_present_max", "Bio04_present_max", "Bio07_present_max","Bio11_present_max", "Bio15_present_max", "Bio17_present_max")
+#glimpse(temp_max_anura_present)
+
+# obtain range
+df_merge_mammals <- inner_join(temp_min_mammals_present, temp_max_mammals_present, by="Species") 
+
+temp_range_mammals_present <- df_merge_mammals %>% 
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio01_range_present = as.numeric(Bio01_present_max) - as.numeric(Bio01_present_min)) %>%
+  mutate(Bio04_range_present = as.numeric(Bio04_present_max) - as.numeric(Bio04_present_min)) %>%
+  mutate(Bio07_range_present = as.numeric(Bio07_present_max) - as.numeric(Bio07_present_min)) %>%
+  mutate(Bio11_range_present = as.numeric(Bio11_present_max) - as.numeric(Bio11_present_min)) %>%
+  mutate(Bio15_range_present = as.numeric(Bio15_present_max) - as.numeric(Bio15_present_min)) %>%
+  mutate(Bio17_range_present = as.numeric(Bio17_present_max) - as.numeric(Bio17_present_min)) %>%
+  select(Species, Bio01_range_present,Bio04_range_present,Bio07_range_present,
+         Bio11_range_present,Bio15_range_present, Bio17_range_present)
 ```
 
 ### 3.0 Save data
 
 ```{r}
 # join past and present niche climate for tetrapods
+# niche position
 climate_niche_amphibia <- inner_join(temp_median_anura, temp_median_anura_present, by="Species")
 climate_niche_squamata <- inner_join(temp_median_squamata, temp_median_squamata_present, by="Species")
 climate_niche_birds <- inner_join(temp_median_birds, temp_median_birds_present, by="Species")
@@ -728,4 +1150,16 @@ write.table(climate_niche_birds, "climate_data/climate_niche_birds.txt",
             sep=",", quote=FALSE, row.names = F)
 write.table(climate_niche_mammals, "climate_data/climate_niche_mammals.txt", 
             sep=",", quote=FALSE, row.names = F)
+
+# save niche breadth
+write.table(temp_range_anura_past, "climate_data/climate_niche_range_amphibia_past.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(temp_range_birds_past, "climate_data/climate_niche_range_birds_past.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(temp_range_squamata_past, "climate_data/climate_niche_range_squamata_past.txt", 
+            sep=",", quote=FALSE, row.names = F)
+write.table(temp_range_mammals_past, "climate_data/climate_niche_range_mammals_past.txt", 
+            sep=",", quote=FALSE, row.names = F)
+
+
 ```
