@@ -418,6 +418,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
+
 #### 1.2 Harmonized dataset
 
 ##### 1.2.1. Frogs
@@ -535,6 +536,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
 
+
 ### 2.0. Lets add var
 
 #### 2.1. Past climate
@@ -612,6 +614,7 @@ temp_range_anura_past <- df_merge_amphibia_past %>%
   mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
   select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
          Bio11_range_past,Bio15_range_past, Bio17_range_past)
+glimpse(temp_range_anura_past)
 ```
 
 ##### 2.1.2. Squamata
@@ -685,18 +688,14 @@ temp_range_squamata_past <- df_merge_squamata_past %>%
   mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
   select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
          Bio11_range_past,Bio15_range_past, Bio17_range_past)
+glimpse(temp_range_squamata_past)
 ```
 
 ##### 2.1.3. Birds
 
 ```{r}
 # Creating PresenceAusence object for lets.addvar
-path.birds <- system.file("extdata", package = "letsR")
-
-birds_shape <- readOGR("shapefiles/teste/birds.shp")
-
 birds_presaus <- lets.presab(birds_shape, xmn = -180, xmx = 180, ymn = -60, ymx = 90, count=T)
-
 projection(birds_presaus$Richness_Raster) <- projection(bio17_past_r)
 
 # lets.addvar(PresenceAbsence object, raster variables, onlyvar = If TRUE only the matrix object will be returned., fun = mean)
@@ -742,19 +741,19 @@ birds_temp_min_past <- cbind(birds_temp_min_01_past, birds_temp_min_04_past, bir
 birds_temp_max_past <- cbind(birds_temp_max_01_past, birds_temp_max_04_past,birds_temp_max_07_past, birds_temp_max_11_past,birds_temp_max_15_past, birds_temp_max_17_past)
 
 # min
-temp_min_birds_past <- lets.summarizer2(birds_temp_min_past,  pos = 1049:1054, fun = min) 
-colnames(temp_min_birds_present) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+temp_min_birds_past <- lets.summarizer2(birds_temp_min_past,  pos = 1526:1531, fun = min) 
+colnames(temp_min_birds_past) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
                                  "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
 # max
-temp_max_birds_past <- lets.summarizer2(birds_temp_max_past,  pos = 1049:1054, fun = max) 
-colnames(temp_max_birds_present) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+temp_max_birds_past <- lets.summarizer2(birds_temp_max_past,  pos = 1526:1531, fun = max) 
+colnames(temp_max_birds_past) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
                                  "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
 #glimpse(temp_max_anura_present)
 
 # obtain range
 df_merge_birds_past <- inner_join(temp_min_birds_past, temp_max_birds_past, by="Species") 
 
-temp_range_birds_present <- df_merge_birds_past %>% 
+temp_range_birds_past <- df_merge_birds_past %>% 
   mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
   mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
   mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
@@ -764,6 +763,7 @@ temp_range_birds_present <- df_merge_birds_past %>%
   mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
   select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
          Bio11_range_past,Bio15_range_past, Bio17_range_past)
+glimpse(temp_range_birds_past)
 ```
 
 ##### 2.1.4. Mammals
@@ -814,19 +814,19 @@ mammals_temp_min_past <- cbind(mammals_temp_min_01_past, mammals_temp_min_04_pas
 mammals_temp_max_past <- cbind(mammals_temp_max_01_past, mammals_temp_max_04_past, mammals_temp_max_07_past, mammals_temp_max_11_past, mammals_temp_max_15_past, mammals_temp_max_17_past)
 
 # min
-temp_min_mammals_past <- lets.summarizer2(mammals_temp_min_past,  pos = 1049:1054, fun = min) 
-colnames(temp_min_mammals_present) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
+temp_min_mammals_past <- lets.summarizer2(mammals_temp_min_past,  pos = 1258:1263, fun = min) 
+colnames(temp_min_mammals_past) <- c("Species", "Bio01_past_min", "Bio04_past_min", "Bio07_past_min",
                                  "Bio11_past_min", "Bio15_past_min", "Bio17_past_min")
 # max
-temp_max_mammals_past <- lets.summarizer2(mammals_temp_max_past,  pos = 1049:1054, fun = max) 
-colnames(temp_max_mammals_present) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
+temp_max_mammals_past <- lets.summarizer2(mammals_temp_max_past,  pos = 1258:1263, fun = max) 
+colnames(temp_max_mammals_past) <- c("Species", "Bio01_past_max", "Bio04_past_max", "Bio07_past_max",
                                  "Bio11_past_max", "Bio15_past_max", "Bio17_past_max")
 #glimpse(temp_max_anura_present)
 
 # obtain range
 df_merge_mammals_past <- inner_join(temp_min_mammals_past, temp_max_mammals_past, by="Species") 
 
-temp_range_mammals_present <- df_merge_mammals_past %>% 
+temp_range_mammals_past <- df_merge_mammals_past %>% 
   mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
   mutate(Bio01_range_past = as.numeric(Bio01_past_max) - as.numeric(Bio01_past_min)) %>%
   mutate(Bio04_range_past = as.numeric(Bio04_past_max) - as.numeric(Bio04_past_min)) %>%
@@ -836,7 +836,10 @@ temp_range_mammals_present <- df_merge_mammals_past %>%
   mutate(Bio17_range_past = as.numeric(Bio17_past_max) - as.numeric(Bio17_past_min)) %>%
   select(Species, Bio01_range_past,Bio04_range_past,Bio07_range_past,
          Bio11_range_past,Bio15_range_past, Bio17_range_past)
+glimpse(temp_range_mammals_past)
 ```
+
+
 
 #### 2.2. Present climate
 
@@ -1071,7 +1074,7 @@ mammals_temp_median_15_present <- lets.addvar(mammals_presaus, Bio15, fun = medi
 mammals_temp_median_17_present <- lets.addvar(mammals_presaus, Bio17, fun = median, onlyvar = TRUE)
 
 # Grouping data set
-mammals_temp_median_present <- cbind(mammals_temp_median_01_present, mammals_temp_median_04_present, mammals_temp_median_07_present, mammals_temp_median_11_present, mammals_temp_median_15_present, mammals_temp_median_17_present
+mammals_temp_median_present <- cbind(mammals_temp_median_01_present, mammals_temp_median_04_present, mammals_temp_median_07_present, mammals_temp_median_11_present, mammals_temp_median_15_present, mammals_temp_median_17_present) 
 
 # Now, we need to summarise the climate variables per specie
 temp_median_mammals_present <- lets.summarizer2(mammals_temp_median_present,  pos = 1258:1263, fun = median)
@@ -1131,6 +1134,8 @@ temp_range_mammals_present <- df_merge_mammals %>%
          Bio11_range_present,Bio15_range_present, Bio17_range_present)
 ```
 
+
+
 ### 3.0 Save data
 
 ```{r}
@@ -1160,6 +1165,4 @@ write.table(temp_range_squamata_past, "climate_data/climate_niche_range_squamata
             sep=",", quote=FALSE, row.names = F)
 write.table(temp_range_mammals_past, "climate_data/climate_niche_range_mammals_past.txt", 
             sep=",", quote=FALSE, row.names = F)
-
-
 ```
