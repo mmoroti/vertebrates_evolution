@@ -167,6 +167,20 @@ birds_shape <- readOGR("shapefiles/teste/birds.shp")
 mammals_shape <- readOGR("shapefiles/data_0.shp")
 ```
 
+##### 0.2.5. Composition and climate data load
+```{r}
+#grid_ma <- readOGR("gridmacro.shp") #432 grids
+#grid_center <- coordinates(grid_ma) # obtain center of grid
+# only climate variables
+climate_dataset <- read.table("omi_data/abiotic_data.txt", h=T)[,2:10] 
+
+# only species matrix
+amphibia_composition <- read.table("omi_data/composition_amphibia.txt", h=T)[,2:519] 
+squamata_composition <- read.table("omi_data/composition_reptiles.txt", h=T)[,-1] 
+birds_composition <- read.table("omi_data/composition_birds.txt", h=T)[,-1] 
+mammals_composition <- read.table("omi_data/composition_mammals.txt", h=T)[,-1] 
+```
+
 ### 1.0. Data processing for BAMM analysis
 
 #### 1.1. Complete dataset
@@ -392,7 +406,7 @@ mcmcout <- read.table("BAMM/mammals/mcmc_out.txt",sep=',', header=T)
 tail(mcmcout)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
-burnstart <- floor(0.1 * nrow(mcmcout))
+burnstart <- floor(0.25 * nrow(mcmcout))
 postburn <- mcmcout[burnstart:nrow(mcmcout), ]
 
 effectiveSize(postburn$N_shifts)
@@ -535,6 +549,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
+
 
 
 ### 2.0. Lets add var
@@ -1136,8 +1151,126 @@ temp_range_mammals_present <- df_merge_mammals %>%
 
 
 
-### 3.0 Save data
+### 3.0 Outlying Mean Indexes (OMI)
+#### 3.1. Past climate
+```{r}
+# TODO precisa extrair para as grids o valor de temperatura dos dados do passado
 
+# climate data
+# present
+dudi_present <- dudi.pca(climate_dataset, scale = TRUE, scan = FALSE)
+
+# niche species
+nic_amphibia <- niche(dudi_present, amphibia_composition, scann = FALSE)
+nic_squamata <- niche(dudi_present, squamata_composition, scann = FALSE)
+nic_birds <- niche(dudi_present, birds_composition, scann = FALSE)
+nic_mammals <- niche(dudi_present, mammals_composition, scann = FALSE)
+
+# number of sites
+N_amp <- dim(nic_amphibia$ls)[1]
+N_squ <- dim(nic_squamata$ls)[1]
+N_bir <- dim(nic_birds$ls)[1]
+N_mam <- dim(nic_mammals$ls)[1]
+
+#Create a factor which defines the subsets
+fact_amp <- factor(c(rep(1,N_amp/2),rep(2,N_amp/2)))
+fact_squ <- factor(c(rep(1,N_squ/2),rep(2,N_squ/2)))
+fact_bir <- factor(c(rep(1,N_bir/2),rep(2,N_bir/2)))
+fact_mam <- factor(c(rep(1,N_mam/2),rep(2,N_mam/2)))
+
+# nic1 will be use as reference and fact will be use to define the subniches environment
+subnic_amphibia <- subniche(nic_amphibia, fact_amp)
+subnic_squamata <- subniche(nic_squamata, fact_squ)
+subnic_birds <- subniche(nic_birds, fact_bir)
+subnic_mammals <- subniche(nic_mammals, fact_mam)
+
+eigenbar(subnic_amphibia)
+eigenbar(subnic_squamata)
+eigenbar(subnic_birds)
+eigenbar(subnic_mammals)
+
+#kable(dudi_present$tab) # climate variables
+#
+## niche traits of each specie
+#kable(niche.param(nic_amphibia)) 
+#kable(niche.param(nic_squamata))
+#kable(niche.param(nic_birds))
+#kable(niche.param(nic_mammals)) 
+#
+# randomization
+# rtest(nic_amphibia,1000)
+# rtest(nic_squamata,1000)
+# rtest(nic_birds,1000)
+# rtest(nic_mammals,1000)
+
+# to dataframe
+niche_amphibia_traits <- as.data.frame(niche.param(nic_amphibia))
+niche_squamata_traits <- as.data.frame(niche.param(nic_squamata))
+niche_birds_traits <- as.data.frame(niche.param(nic_birds))
+niche_mammals_traits <- as.data.frame(niche.param(nic_mammals))
+#plot(nic_amphibia)
+```
+
+#### 3.2. Present climate
+```{r}
+# climate data
+# present
+dudi_present <- dudi.pca(climate_dataset, scale = TRUE, scan = FALSE)
+
+# niche species
+nic_amphibia <- niche(dudi_present, amphibia_composition, scann = FALSE)
+nic_squamata <- niche(dudi_present, squamata_composition, scann = FALSE)
+nic_birds <- niche(dudi_present, birds_composition, scann = FALSE)
+nic_mammals <- niche(dudi_present, mammals_composition, scann = FALSE)
+
+# number of sites
+N_amp <- dim(nic_amphibia$ls)[1]
+N_squ <- dim(nic_squamata$ls)[1]
+N_bir <- dim(nic_birds$ls)[1]
+N_mam <- dim(nic_mammals$ls)[1]
+
+#Create a factor which defines the subsets
+fact_amp <- factor(c(rep(1,N_amp/2),rep(2,N_amp/2)))
+fact_squ <- factor(c(rep(1,N_squ/2),rep(2,N_squ/2)))
+fact_bir <- factor(c(rep(1,N_bir/2),rep(2,N_bir/2)))
+fact_mam <- factor(c(rep(1,N_mam/2),rep(2,N_mam/2)))
+
+# nic1 will be use as reference and fact will be use to define the subniches environment
+subnic_amphibia <- subniche(nic_amphibia, fact_amp)
+subnic_squamata <- subniche(nic_squamata, fact_squ)
+subnic_birds <- subniche(nic_birds, fact_bir)
+subnic_mammals <- subniche(nic_mammals, fact_mam)
+
+eigenbar(subnic_amphibia)
+eigenbar(subnic_squamata)
+eigenbar(subnic_birds)
+eigenbar(subnic_mammals)
+
+#kable(dudi_present$tab) # climate variables
+#
+## niche traits of each specie
+#kable(niche.param(nic_amphibia)) 
+#kable(niche.param(nic_squamata))
+#kable(niche.param(nic_birds))
+#kable(niche.param(nic_mammals)) 
+#
+# randomization
+# rtest(nic_amphibia,1000)
+# rtest(nic_squamata,1000)
+# rtest(nic_birds,1000)
+# rtest(nic_mammals,1000)
+
+# to dataframe
+?as.data.frame
+
+niche_amphibia_traits <- as.data.frame(niche.param(nic_amphibia))
+niche_squamata_traits <- as.data.frame(niche.param(nic_squamata))
+niche_birds_traits <- as.data.frame(niche.param(nic_birds))
+niche_mammals_traits <- as.data.frame(niche.param(nic_mammals))
+#plot(nic_amphibia)
+```
+
+### 4.0 Save data
 ```{r}
 # join past and present niche climate for tetrapods
 # niche position
@@ -1156,13 +1289,62 @@ write.table(climate_niche_birds, "climate_data/climate_niche_birds.txt",
 write.table(climate_niche_mammals, "climate_data/climate_niche_mammals.txt", 
             sep=",", quote=FALSE, row.names = F)
 
+
+###
+# load dataset
+# past
+climate_niche_range_amphibia_past <- read.table("climate_data/climate_niche_range_amphibia_past.txt",
+                                                header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_squamata_past <- read.table("climate_data/climate_niche_range_squamata_past.txt",
+                                           header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_birds_past <- read.table("climate_data/climate_niche_range_birds_past.txt",
+                                        header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_mammals_past <- read.table("climate_data/climate_niche_range_mammals_past.txt",
+                                          header=TRUE, sep=",", row.names=NULL)
+# present data
+climate_niche_range_amphibia <- read.table("climate_data/climate_niche_range_amphibia.txt",
+                                           header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_squamata <- read.table("climate_data/climate_niche_range_squamata.txt",
+                                           header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_birds <- read.table("climate_data/climate_niche_range_birds.txt",
+                                        header=TRUE, sep=",", row.names=NULL)
+climate_niche_range_mammals <- read.table("climate_data/climate_niche_range_mammals.txt",
+                                          header=TRUE, sep=",", row.names=NULL)
+
+# niche range lets add var (max - min)
+range_niche_amphibia <- inner_join(climate_niche_range_amphibia_past,
+                                   climate_niche_range_amphibia,
+                                   by="Species")
+
+range_niche_squamata <- inner_join(climate_niche_range_squamata_past,
+                                   climate_niche_range_squamata,
+                                   by="Species")
+
+range_niche_birds <- inner_join(climate_niche_range_birds_past,
+                                climate_niche_range_birds,
+                                by="Species")
+
+range_niche_mammals <- inner_join(climate_niche_range_mammals_past,
+                                  climate_niche_range_mammals, 
+                                  by="Species")                                          
+
 # save niche breadth
-write.table(temp_range_anura_past, "climate_data/climate_niche_range_amphibia_past.txt", 
+write.table(range_niche_amphibia, "climate_data/niche_range_amphibia_letsaddvar.txt", 
             sep=",", quote=FALSE, row.names = F)
-write.table(temp_range_birds_past, "climate_data/climate_niche_range_birds_past.txt", 
+write.table(range_niche_squamata, "climate_data/niche_range_squamata_letsaddvar.txt", 
             sep=",", quote=FALSE, row.names = F)
-write.table(temp_range_squamata_past, "climate_data/climate_niche_range_squamata_past.txt", 
+write.table(range_niche_birds, "climate_data/niche_range_birds_letsaddvar.txt", 
             sep=",", quote=FALSE, row.names = F)
-write.table(temp_range_mammals_past, "climate_data/climate_niche_range_mammals_past.txt", 
+write.table(range_niche_mammals, "climate_data/niche_range_mammals_letsaddvar.txt", 
             sep=",", quote=FALSE, row.names = F)
+
+# save dataset OMI
+write.table(niche_amphibia_traits, "climate_data/niche_omi_amphibia.txt", 
+            sep=",", quote=FALSE, row.names = T)
+write.table(niche_squamata_traits, "climate_data/niche_omi_squamata.txt", 
+            sep=",", quote=FALSE, row.names = T)
+write.table(niche_birds_traits, "climate_data/niche_omi_birds.txt", 
+            sep=",", quote=FALSE, row.names = T)
+write.table(niche_mammals_traits, "climate_data/niche_omi_mammals.txt", 
+            sep=",", quote=FALSE, row.names = T)
 ```
