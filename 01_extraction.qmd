@@ -101,7 +101,6 @@ fit_modified <- function(phy, trait){
 #### 0.2.1. Trait data
 
 ```{r}
-setwd("E:/repos/vertebrates_evolution")
 ###--- Amphibia
 anura_traits_all <- read.csv2("traits/amphibia/AmphiBIO_v1.csv", h=T, sep=",")
 ###--- Squamata
@@ -674,3 +673,5 @@ write.tree(mammals_phy_rooted_without_na, "02_metrics/harmonized_data/mammals_ha
 # traits to BAMM folder
 write.table(mammals_traits_with_phylogeny_without_na, "02_metrics/BAMM/mammals_harm/mammals_traits_harm.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
 ```
+
+```{r}
