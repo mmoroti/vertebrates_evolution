@@ -404,7 +404,7 @@ generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait
 Check MCMC run convergence
 
 ```{r}
-mcmcout <- read.table("BAMM/mammals/mammals_test/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/mammals/mcmc_out.txt",sep=',', header=T)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
 burnstart <- floor(0.25 * nrow(mcmcout))
@@ -1197,7 +1197,6 @@ vif(ml2_mammals)
 #create horizontal bar chart to display each VIF value
 barplot(vif(ml2_mammals), main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
 ```
-
 
 #### 3.2. Past climate
 ```{r}
