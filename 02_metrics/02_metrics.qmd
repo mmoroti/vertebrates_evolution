@@ -404,7 +404,7 @@ generateControlFile(file = 'BAMM/mammals/controlfile_mammals.txt', type = 'trait
 Check MCMC run convergence
 
 ```{r}
-mcmcout <- read.table("BAMM/mammals/mcmc_out.txt",sep=',', header=T)
+mcmcout <- read.table("BAMM/mammals/mammals_test/mcmc_out.txt",sep=',', header=T)
 plot(mcmcout$logLik ~ mcmcout$generation)
 
 burnstart <- floor(0.25 * nrow(mcmcout))
@@ -422,9 +422,11 @@ BAMMTools exploring
 ```{r}
 # Tue Apr 18 19:07:03 2023 ------------------------------
 # BAMMTools
-events.mammals <- read.table("BAMM/mammals/event_data.txt", sep=',', header=T)
-mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
-edata_mammals <- getEventData(mammals_phy_rooted, events.mammals, burnin=0.01, type='trait')
+events.mammals <- read.table("BAMM/mammals/mammals_test/event_data.txt", sep=',', header=T)
+
+mammals_phy_rooted <- ape::multi2di(mammals_phy_full)
+edata_mammals <- getEventData(mammals_phy_rooted, events.mammals, burnin=0.25, type='trait')
+
 plotRateThroughTime(edata_mammals, ratetype="auto", smooth=TRUE)
 
 mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
@@ -1151,9 +1153,53 @@ temp_range_mammals_present <- df_merge_mammals %>%
 
 
 
+
 ### 3.0 Outlying Mean Indexes (OMI)
 
-#### 3.1. Past climate
+#### 3.1. VIF climate variables 
+```{r}
+# Preparing dataset
+data_full <- left_join(taxas, abiotic_data, by="id") # TODO dar um join no dataset com as taxas evolutivas e as variaveis climáticas brutas
+
+# Construímos um modelo linear das variáveis que serão preditas pelo clima
+# amp
+ml_amp <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
+# squa
+ml_squa <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
+# birds
+ml_birds <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
+# mammals
+ml_mammals <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
+
+#create vector of VIF values
+vif_amp <- vif(ml_amp)
+vif_squa <- vif(ml_squa)
+vif_birds <- vif(ml_birds)
+vif_mammals <- vif(ml_mammals)
+# vif are equal for all groups
+#create horizontal bar chart to display each VIF value
+barplot(vif_amp, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+barplot(vif_squa, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+barplot(vif_birds, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+barplot(vif_mammals, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+
+#Model without bio01 e bio11
+ml2_amp <- lm(rich_amp + dr_amp + aa_amp + fdis_amp ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
+ml2_squa <- lm(rich_squa + dr_squa + aa_squa + fdis_squa ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
+ml2_birds <- lm(rich_birds + dr_birds + aa_birds + fdis_birds ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
+ml2_mammals <- lm(rich_mammals + dr_mammals + aa_mammals + fdis_mammals ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
+# Verificando multicolinearidade - VIF
+#create vector of VIF values
+vif(ml2_amp)
+vif(ml2_squa)
+vif(ml2_birds)
+vif(ml2_mammals)
+#create horizontal bar chart to display each VIF value
+barplot(vif(ml2_mammals), main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+```
+
+
+#### 3.2. Past climate
 ```{r}
 #Extraindo dados climáticos
 data_extract1 <- raster::extract(bio01_past_r,             
@@ -1250,7 +1296,7 @@ niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
 #plot(nic_amphibia)
 ```
 
-#### 3.2. Present climate
+#### 3.3. Present climate
 ```{r}
 # climate data
 # present
