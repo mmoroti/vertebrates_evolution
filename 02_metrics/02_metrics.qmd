@@ -193,19 +193,21 @@ mammals_composition <- read.table("omi_data/composition_mammals.txt", h=T)[,-1]
 # arvores precisam ser ultrametricas, binárias (sem politomias) e sem valor de ramo = 0
 amphibia_phy_ultra <- force.ultrametric(anura_phy_full)
 
-write.tree(amphibia_phy_ultra, "BAMM/amphibia/amphibia_fully_bamm.new")
+write.tree(amphibia_phy_ultra, "BAMM/amphibia/amphibia_log/amphibia_fully_bamm.new")
 
 # preparing data for setBAMMpriors
-svl_amphibia <- as.numeric(anura_traits_full$V2)
+svl_amphibia <- log10(as.numeric(anura_traits_full$V2))
 names(svl_amphibia) <- anura_traits_full$V1
 
 # setBAMMprior para achar os valores de priors
 #setBAMMpriors(phy = anura_phy_full, traits = svl_amphibia)
-priors <- BAMMtools::setBAMMpriors(phy = anura_phy_full, total.taxa = nrow(anura_traits_full), traits = svl_amphibia, outfile = NULL) 
+priors <- BAMMtools::setBAMMpriors(phy = anura_phy_full, traits = svl_amphibia, outfile = NULL) 
 
-generateControlFile(file = 'BAMM/amphibia/controlfile_amphibia.txt', type = 'trait', params = list(
+write.table(mass_mammals, "BAMM/amphibia/amphibia_log/amphibia_traits_fully_2.txt", quote = FALSE, col.names = FALSE,row.names = TRUE) 
+
+generateControlFile(file = 'BAMM/amphibia/amphibia_log/controlfile_amphibia.txt', type = 'trait', params = list(
     treefile = 'amphibia_fully_bamm.new',
-    traitfile='amphibia_traits_fully.txt',
+    traitfile='amphibia_traits_fully_2.txt',
     numberOfGenerations = '12000000',
     overwrite = '1',
     betaShiftPrior = as.numeric(priors['betaShiftPrior']),
@@ -254,7 +256,7 @@ write.tree(squamata_phy_ultra, "BAMM/squamata/squamata_fully_bamm.new")
 # Squamata
 squamata_traits_full <- squamata_traits_full[-1,]
 
-svl_squamata <- as.numeric(squamata_traits_full$V2)
+svl_squamata <- log10(as.numeric(squamata_traits_full$V2))
 names(svl_squamata) <- squamata_traits_full$V1
 
 
@@ -384,7 +386,7 @@ write.tree(mammals_phy_ultra, "BAMM/mammals/mammals_fully_bamm.new")
 
 # preparing traits
 # Squamata
-mass_mammals <- as.numeric(mammals_traits_full$V2)
+mass_mammals <- log10(as.numeric(mammals_traits_full$V2))
 names(mass_mammals) <- mammals_traits_full$V1
 
 # setBAMMprior para achar os valores de priors
@@ -434,6 +436,7 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
+
 
 
 #### 1.2 Harmonized dataset
@@ -552,7 +555,6 @@ mean_mammals <- getTipRates(edata_mammals, returnNetDiv = FALSE,
 
 plot.bammdata(edata_mammals, lwd=1, method="polar", pal="temperature")
 ```
-
 
 
 ### 2.0. Lets add var
@@ -1154,48 +1156,23 @@ temp_range_mammals_present <- df_merge_mammals %>%
 
 
 
+
 ### 3.0 Outlying Mean Indexes (OMI)
 
 #### 3.1. VIF climate variables 
 ```{r}
 # Preparing dataset
-data_full <- left_join(taxas, abiotic_data, by="id") # TODO dar um join no dataset com as taxas evolutivas e as variaveis climáticas brutas
+data_past <- as.data.frame(cbind(bio01 = bio01_past[,3], bio04 = bio04_past[,3], bio07 = bio07_past[,3],
+                                 bio11 = bio11_past[,3], bio15 = bio15_past[,3], bio17 = bio17_past[,3]))
+v1 <- vifcor(data_past, th=0.5) # identify collinear variables that should be excluded
+v1
+# data_past_select <- exclude(data_past,v1) VIF < 3
 
-# Construímos um modelo linear das variáveis que serão preditas pelo clima
-# amp
-ml_amp <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
-# squa
-ml_squa <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
-# birds
-ml_birds <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
-# mammals
-ml_mammals <- lm(taxas_evolucao ~ BIO01+ BIO02+BIO03+BIO04+BIO07+BIO11+BIO12+BIO15+BIO17, data=data_full)
-
-#create vector of VIF values
-vif_amp <- vif(ml_amp)
-vif_squa <- vif(ml_squa)
-vif_birds <- vif(ml_birds)
-vif_mammals <- vif(ml_mammals)
-# vif are equal for all groups
-#create horizontal bar chart to display each VIF value
-barplot(vif_amp, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
-barplot(vif_squa, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
-barplot(vif_birds, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
-barplot(vif_mammals, main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
-
-#Model without bio01 e bio11
-ml2_amp <- lm(rich_amp + dr_amp + aa_amp + fdis_amp ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
-ml2_squa <- lm(rich_squa + dr_squa + aa_squa + fdis_squa ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
-ml2_birds <- lm(rich_birds + dr_birds + aa_birds + fdis_birds ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
-ml2_mammals <- lm(rich_mammals + dr_mammals + aa_mammals + fdis_mammals ~ BIO03+BIO04+BIO12+BIO15+BIO17, data=data_full)
-# Verificando multicolinearidade - VIF
-#create vector of VIF values
-vif(ml2_amp)
-vif(ml2_squa)
-vif(ml2_birds)
-vif(ml2_mammals)
-#create horizontal bar chart to display each VIF value
-barplot(vif(ml2_mammals), main = "VIF Values", horiz = TRUE, col = "steelblue")+abline(v = 20)
+# Preparing dataset
+data_present <- climate_dataset %>% select(BIO01, BIO04, BIO07, BIO11, BIO12, BIO15, BIO17)
+v2 <- vifcor(data_present, th=0.7) # identify collinear variables that should be excluded
+v2
+data_present_select <- exclude(data_present,v2) # VIF < 3
 ```
 
 #### 3.2. Past climate
@@ -1205,21 +1182,6 @@ data_extract1 <- raster::extract(bio01_past_r,
                                  grid_center,   
                                  fun=mean,     
                                  df=TRUE) 
-
-data_extract4 <- raster::extract(bio04_past_r,             
-                                 grid_center,    
-                                 fun=mean,     
-                                 df=TRUE)
-
-data_extract7 <- raster::extract(bio07_past_r,             
-                                 grid_center,    
-                                  fun=mean,     
-                                  df=TRUE)
-
-data_extract11 <- raster::extract(bio11_past_r,             
-                                  grid_center,     
-                                 fun=mean,     
-                                 df=TRUE)
 
 data_extract15 <- raster::extract(bio15_past_r,             
                                   grid_center,     
@@ -1232,9 +1194,6 @@ data_extract17 <- raster::extract(bio17_past_r,
                                   df=TRUE)
 #Unindo variáveis climáticas em um data.frame
 climate_past <- data.frame(BIO01_past = data_extract1$layer,
-                    BIO04_past = data_extract4$layer,
-                    BIO07_past = data_extract7$layer,
-                    BIO11_past = data_extract11$layer,
                     BIO15_past = data_extract15$layer,
                     BIO17_past = data_extract17$layer)
 ```
@@ -1292,6 +1251,7 @@ niche_amphibia_traits_past <- as.data.frame(niche.param(nic_amphibia_past))
 niche_squamata_traits_past <- as.data.frame(niche.param(nic_squamata_past))
 niche_birds_traits_past <- as.data.frame(niche.param(nic_birds_past))
 niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
+
 #plot(nic_amphibia)
 ```
 
@@ -1299,7 +1259,7 @@ niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
 ```{r}
 # climate data
 # present
-dudi_present <- dudi.pca(climate_dataset, scale = TRUE, scan = FALSE)
+dudi_present <- dudi.pca(data_present_select, scale = TRUE, scan = FALSE)
 
 # niche species
 nic_amphibia <- niche(dudi_present, amphibia_composition, scann = FALSE)
