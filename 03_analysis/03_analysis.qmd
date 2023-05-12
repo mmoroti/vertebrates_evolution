@@ -14,6 +14,7 @@ library(picante) # prune sample with phy
 library(tidyverse) # data science handling
 library(phytools) # phylogenetic data
 library(nlme) # gls analysis
+library(cowplot) # plots
 ```
 
 
@@ -36,7 +37,8 @@ amphibia_full_niche <- read.table("climate_niche/niche_omi_amphibia.txt", sep=",
 amphibia_full_niche$Species <- row.names(amphibia_full_niche)
 
 squamata_full_niche <- read.table("climate_niche/niche_omi_squamata.txt", sep=",", h=T)[,2:3]
-squamata_full_niche <- row.names(squamata_full_niche)
+squamata_full_niche$Species <- row.names(squamata_full_niche)
+
 
 birds_full_niche <- read.table("climate_niche/niche_omi_birds.txt", sep=",", h=T)[,2:3]
 birds_full_niche$Species <- row.names(birds_full_niche)
@@ -49,7 +51,7 @@ amphibia_full_niche_past <- read.table("climate_niche/niche_omi_amphibia_past.tx
 amphibia_full_niche_past$Species <- row.names(amphibia_full_niche_past)
 
 squamata_full_niche_past <- read.table("climate_niche/niche_omi_squamata_past.txt",sep=",", h=T)[,2:3]
-squamata_full_niche_past <- row.names(squamata_full_niche_past)
+squamata_full_niche_past$Species <- row.names(squamata_full_niche_past)
 
 birds_full_niche_past <- read.table("climate_niche/niche_omi_birds_past.txt", sep=",", h=T)[,2:3]
 birds_full_niche_past$Species <- row.names(birds_full_niche_past)
@@ -62,9 +64,9 @@ mammals_full_niche_past$Species <- row.names(mammals_full_niche_past)
 
 ```{r}
 amphibia_full_rates <- read.table("trait_evolution/amphibia_rates_fully.txt", h=F) 
-squamata_full_list <- read.table("trait_evolution/squamata_rates_fully.txt", h=F) 
-birds_full_list <- read.table("trait_evolution/birds_rates_fully.txt", h=F) 
-mammals_full_list <- read.table("trait_evolution/mammals_rates_fully.txt", h=F) 
+squamata_full_rates <- read.table("trait_evolution/squamata_rates_fully.txt", h=F) 
+birds_full_rates <- read.table("trait_evolution/birds_rates_fully.txt", h=F) 
+mammals_full_rates <- read.table("trait_evolution/mammals_rates_fully.txt", h=F) 
 ```
 
 #### 0.2.4. Phylogeny
@@ -179,13 +181,165 @@ anura_phy_pgls <- prune.sample(amp_community_phy, anura_phy_full)
 ```
 
 #### 1.2. Squamata
-
+Merge with climate niche (Present data)
 ```{r}
+# present data
+# Transform column names to rows
+names(squamata_full_list) <- gsub(".", "_", fixed=T, names(squamata_full_list))
+squamata_list <- squamata_full_list %>% 
+  gather(key = "Species", value = "column_value", Acanthochelys_radiolata:Xenopholis_undulatus) %>%
+  distinct(Species) %>%
+  arrange(Species)
+
+squamata_full_niche <- squamata_full_niche %>% mutate(Species = gsub("\\.", "_", Species))
+
+# join with climate niche
+species_climate_niche_squamata <- left_join(squamata_list, squamata_full_niche, by="Species")
+
+# verifing the species don't merge
+anti_join(amphibia_list, amphibia_full_niche, by="Species") # 0 rows
+
+sum(is.na(species_climate_niche_squamata)) # 0 NA's
+#vis_miss(species_climate_niche) # 0.0 % missing data
+nrow(species_climate_niche_squamata)
 ```
 
-#### 1.3. Birds
-
+Merge with climate niche (Past data)
 ```{r}
+# past data
+# join with climate niche
+squamata_full_niche_past <- squamata_full_niche_past %>% mutate(Species = gsub("\\.", "_", Species))
+species_climate_niche_past_squamata <- left_join(squamata_list, squamata_full_niche_past , by="Species")
+
+# verifing the species don't merge
+# anti_join(amphibia_list, amphibia_full_niche, by="Species") # 0 rows
+
+sum(is.na(species_climate_niche_past_squamata)) # 0 NA's
+# vis_miss(species_climate_niche_past) # 0.4 % missing data
+#View(species_climate_niche_past)
+```
+
+Merge with trait evolution rate
+```{r}
+# Merge with trait evolution rate
+squamata_full_rates <- squamata_full_rates %>% rename(Species = V1, trait_rate = V2)
+#View(amphibia_full_rates)
+
+# adjustments in nomenclature
+#amphibia_full_rates$Species <- str_replace_all(amphibia_full_rates$Species, "Hylomantis_aspera", "Agalychnis_aspera") 
+
+# merge
+# all species (with NA's)
+# amphibia_dataset <- left_join(species_climate_niche, amphibia_full_rates, by="Species")
+
+# only species with phylogeny
+squamata_dataset <- inner_join(species_climate_niche_squamata, squamata_full_rates, by="Species")
+squamata_dataset_past <- inner_join(species_climate_niche_past_squamata, squamata_full_rates, by="Species")
+
+anti_join(species_climate_niche_past_squamata, squamata_full_rates, by="Species")
+# sairam poucas espécies, maioria crocodilo e tartaruga
+# sum(is.na(amphibia_dataset)) # 57 spp ausentes na filogenia
+head(squamata_dataset)
+hist(squamata_dataset$trait_rate)
+
+# conferind NA's
+#View(anti_join(amphibia_dataset, amphibia_full_rates, by="Species")) 
+#View(anti_join(amphibia_list, amphibia_full_rates, by="Species")) 
+```
+
+Phylogeny to PGLS
+```{r}
+# species in colnames for prune.sample
+squamata_community_phy <- squamata_dataset %>%
+  spread(Species, as.numeric(trait_rate))
+
+# adjustments in phy file
+#anura_phy_full$tip.label <- gsub("Hylomantis_aspera", "Agalychnis_aspera", fixed=T, anura_phy_full$tip.label)
+
+squamata_phy_pgls <- prune.sample(squamata_community_phy, squamata_phy_full) # 368
+nrow(squamata_dataset) # 368 
+```
+
+
+#### 1.3. Birds
+Merge with climate niche (Present data)
+```{r}
+# present data
+# Transform column names to rows
+names(squamata_full_list) <- gsub(".", "_", fixed=T, names(squamata_full_list))
+
+squamata_list <- squamata_full_list %>% 
+  gather(key = "Species", value = "column_value", Acanthochelys_radiolata:Xenopholis_undulatus) %>%
+  distinct(Species) %>%
+  arrange(Species)
+
+squamata_full_niche <- squamata_full_niche %>% mutate(Species = gsub("\\.", "_", Species))
+
+# join with climate niche
+species_climate_niche_squamata <- left_join(squamata_list, squamata_full_niche, by="Species")
+
+# verifing the species don't merge
+anti_join(amphibia_list, amphibia_full_niche, by="Species") # 0 rows
+
+sum(is.na(species_climate_niche_squamata)) # 0 NA's
+#vis_miss(species_climate_niche) # 0.0 % missing data
+nrow(species_climate_niche_squamata)
+```
+
+Merge with climate niche (Past data)
+```{r}
+# past data
+# join with climate niche
+squamata_full_niche_past <- squamata_full_niche_past %>% mutate(Species = gsub("\\.", "_", Species))
+species_climate_niche_past_squamata <- left_join(squamata_list, squamata_full_niche_past , by="Species")
+
+# verifing the species don't merge
+# anti_join(amphibia_list, amphibia_full_niche, by="Species") # 0 rows
+
+sum(is.na(species_climate_niche_past_squamata)) # 0 NA's
+# vis_miss(species_climate_niche_past) # 0.4 % missing data
+#View(species_climate_niche_past)
+```
+
+Merge with trait evolution rate
+```{r}
+# Merge with trait evolution rate
+squamata_full_rates <- squamata_full_rates %>% rename(Species = V1, trait_rate = V2)
+#View(amphibia_full_rates)
+
+# adjustments in nomenclature
+#amphibia_full_rates$Species <- str_replace_all(amphibia_full_rates$Species, "Hylomantis_aspera", "Agalychnis_aspera") 
+
+# merge
+# all species (with NA's)
+# amphibia_dataset <- left_join(species_climate_niche, amphibia_full_rates, by="Species")
+
+# only species with phylogeny
+squamata_dataset <- inner_join(species_climate_niche_squamata, squamata_full_rates, by="Species")
+squamata_dataset_past <- inner_join(species_climate_niche_past_squamata, squamata_full_rates, by="Species")
+
+anti_join(species_climate_niche_past_squamata, squamata_full_rates, by="Species")
+# sairam poucas espécies, maioria crocodilo e tartaruga
+# sum(is.na(amphibia_dataset)) # 57 spp ausentes na filogenia
+head(squamata_dataset)
+hist(squamata_dataset$trait_rate)
+
+# conferind NA's
+#View(anti_join(amphibia_dataset, amphibia_full_rates, by="Species")) 
+#View(anti_join(amphibia_list, amphibia_full_rates, by="Species")) 
+```
+
+Phylogeny to PGLS
+```{r}
+# species in colnames for prune.sample
+squamata_community_phy <- squamata_dataset %>%
+  spread(Species, as.numeric(trait_rate))
+
+# adjustments in phy file
+#anura_phy_full$tip.label <- gsub("Hylomantis_aspera", "Agalychnis_aspera", fixed=T, anura_phy_full$tip.label)
+
+squamata_phy_pgls <- prune.sample(squamata_community_phy, squamata_phy_full) # 368
+nrow(squamata_dataset) # 368 
 ```
 
 #### 1.4. Mammals
@@ -197,16 +351,6 @@ anura_phy_pgls <- prune.sample(amp_community_phy, anura_phy_full)
 ### 2.0. PGLS / RPANDA
 #### 2.1. Amphibia
 ```{r}
-# Present data 
-amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
-amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
-amphibia_dataset_trans
-
-model_anura_svl <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_trans, 
-                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
-
-summary(model_anura_svl)
-
 # Past data
 amphibia_dataset_trans_past <- decostand(amphibia_dataset_past[,2:4], "normalize")
 amphibia_dataset_trans_past <- cbind(Species = amphibia_dataset_past[,1],amphibia_dataset_trans_past)
@@ -214,33 +358,82 @@ amphibia_dataset_trans_past
 
 model_anura_svl_past <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_trans_past, 
                        correlation = corPagel(1,anura_phy_pgls, form = ~Species))
-
 summary(model_anura_svl_past)
+
+anura_past <- plot(model_anura_svl_past, main= "Past climate data")
+
+# Present data 
+amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
+amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
+amphibia_dataset_trans
+
+model_anura_svl <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_trans, 
+                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+summary(model_anura_svl)
+anura_present <- plot(model_anura_svl, main= "Present climate data")
+
+plot_grid(anura_past, anura_present, align = "h", labels = NULL)
 ```
 
 #### 2.2. Squamata
 ```{r}
-# Squamata
-amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
-amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
-amphibia_dataset_trans
+# Past data
+squamata_dataset_trans_past <- decostand(squamata_dataset_past[,2:4], "normalize")
+squamata_dataset_trans_past <- cbind(Species = squamata_dataset_past[,1],squamata_dataset_trans_past)
+squamata_dataset_trans_past
 
-model_anura_svl <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_trans, 
-                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+model_squamata_svl_past <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans_past, 
+                       correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 
-summary(model_anura_svl)
+summary(model_squamata_svl_past)
+
+squamata_past <- plot(model_squamata_svl_past, main= "Past climate data")
+
+# Present data 
+squamata_dataset_trans <- decostand(squamata_dataset[,2:4], "normalize")
+squamata_dataset_trans <- cbind(Species = squamata_dataset[,1],squamata_dataset_trans)
+squamata_dataset_trans
+
+model_squamata_svl <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans, 
+                       correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
+summary(model_squamata_svl)
+
+squamata_present <- plot(model_squamata_svl, main= "Present climate data")
+
+plot_grid(squamata_past, squamata_present, align = "h", labels = NULL)
 ```
+
 
 #### 2.3. Birds
 ```{r}
-amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
-amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
-amphibia_dataset_trans
+# Past data
+squamata_dataset_trans_past <- decostand(squamata_dataset_past[,2:4], "normalize")
+squamata_dataset_trans_past <- cbind(Species = squamata_dataset_past[,1],squamata_dataset_trans_past)
+squamata_dataset_trans_past
 
-model_anura_svl <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_trans, 
-                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+model_squamata_svl_past <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans_past, 
+                       correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 
-summary(model_anura_svl)
+summary(model_squamata_svl_past)
+R2(model_squamata_svl_past)
+
+# plot
+squamata_past <- plot(model_squamata_svl_past, main= "Past climate data")
+
+# Present data 
+squamata_dataset_trans <- decostand(squamata_dataset[,2:4], "normalize")
+squamata_dataset_trans <- cbind(Species = squamata_dataset[,1],squamata_dataset_trans)
+squamata_dataset_trans
+
+model_squamata_svl <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans, 
+                       correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
+summary(model_squamata_svl)
+R2(model_squamata_svl)
+
+# plot
+squamata_present <- plot(model_squamata_svl, main= "Present climate data")
+
+plot_grid(squamata_past, squamata_present, align = "h", labels = NULL)
 ```
 
 #### 2.4. Mammals
