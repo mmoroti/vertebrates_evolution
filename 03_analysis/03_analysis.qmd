@@ -15,15 +15,16 @@ library(tidyverse) # data science handling
 library(phytools) # phylogenetic data
 library(nlme) # gls analysis
 library(cowplot) # plots
+library(modelsummary) # modelplots
+library(rr2)
 ```
-
 
 ### 0.2. Load data
 
 #### 0.2.1. List of species
 
 ```{r}
-amphibia_full_list <- read.table("list_of_species/composition_amphibia.txt", h=T) #Vanconcelos et al. (2019);
+amphibia_full_list <- read.table("list_of_species/composition_amphibia.txt", h=T) 
 squamata_full_list <- read.table("list_of_species/composition_reptiles.txt", h=T) #Roll et al. (2017);
 birds_full_list <- read.table("list_of_species/composition_birds.txt", h=T) #BirdLife (2015); 
 mammals_full_list <- read.table("list_of_species/composition_mammals.txt", h=T) #IUCN  
@@ -36,9 +37,14 @@ mammals_full_list <- read.table("list_of_species/composition_mammals.txt", h=T) 
 amphibia_full_niche <- read.table("climate_niche/niche_omi_amphibia.txt", sep=",", h=T)[,2:3]
 amphibia_full_niche$Species <- row.names(amphibia_full_niche)
 
+hist(amphibia_full_niche$OMI)
+hist(amphibia_full_niche$Tol)
+
 squamata_full_niche <- read.table("climate_niche/niche_omi_squamata.txt", sep=",", h=T)[,2:3]
 squamata_full_niche$Species <- row.names(squamata_full_niche)
 
+hist(squamata_full_niche$OMI)
+hist(squamata_full_niche$Tol)
 
 birds_full_niche <- read.table("climate_niche/niche_omi_birds.txt", sep=",", h=T)[,2:3]
 birds_full_niche$Species <- row.names(birds_full_niche)
@@ -152,8 +158,8 @@ amphibia_dataset <- inner_join(species_climate_niche, amphibia_full_rates, by="S
 amphibia_dataset_past <- inner_join(species_climate_niche_past, amphibia_full_rates, by="Species")
 
 # sum(is.na(amphibia_dataset)) # 57 spp ausentes na filogenia
-head(amphibia_dataset)
-hist(amphibia_dataset$trait_rate)
+View(amphibia_dataset)
+max(amphibia_dataset$Tol)
 
 # conferind NA's
 #View(anti_join(amphibia_dataset, amphibia_full_rates, by="Species")) 
@@ -438,20 +444,25 @@ nrow(mammals_dataset) # 194
 #### 2.1. Amphibia
 ```{r}
 # Past data
-#amphibia_dataset_trans_past <- decostand(amphibia_dataset_past[,2:4], "normalize")
+#amphibia_dataset_trans_past <- decostand(amphibia_dataset_past[,2:4], "standardize")
 #amphibia_dataset_trans_past <- cbind(Species = amphibia_dataset_past[,1],amphibia_dataset_trans_past)
-#amphibia_dataset_trans_past
+#nrow(amphibia_dataset_trans_past)
 
-model_anura_svl_past <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset_past, 
+model_anura_svl_past <- gls((trait_rate*1000) ~ OMI + Tol , data=amphibia_dataset_past, 
                        correlation = corPagel(1,anura_phy_pgls, form = ~Species))
 
 summary(model_anura_svl_past)
+plot(model_anura_svl_past)
+plot(resid(model_anura_svl_past) ~ fitted(model_anura_svl_past))
+qqnorm(resid(model_anura_svl_past))
+qqline(resid(model_anura_svl_past))
 
 anura_past <- plot(model_anura_svl_past, main= "Past climate data")
 
 # Present data 
-amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
-amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
+
+#amphibia_dataset_trans <- decostand(amphibia_dataset[,2:4], "normalize")
+#amphibia_dataset_trans <- cbind(Species = amphibia_dataset[,1],amphibia_dataset_trans)
 #amphibia_dataset_trans
 
 model_anura_svl <- gls(trait_rate ~ OMI + Tol, data=amphibia_dataset, 
@@ -466,11 +477,11 @@ plot_grid(anura_past, anura_present, align = "h", labels = NULL)
 #### 2.2. Squamata
 ```{r}
 # Past data
-squamata_dataset_trans_past <- decostand(squamata_dataset_past[,2:4], "normalize")
-squamata_dataset_trans_past <- cbind(Species = squamata_dataset_past[,1],squamata_dataset_trans_past)
-squamata_dataset_trans_past
+#squamata_dataset_trans_past <- decostand(squamata_dataset_past[,2:4], "normalize")
+#squamata_dataset_trans_past <- cbind(Species = squamata_dataset_past[,1],squamata_dataset_trans_past)
+#squamata_dataset_trans_past
 
-model_squamata_svl_past <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans_past, 
+model_squamata_svl_past <- gls((trait_rate*1000) ~ OMI + Tol, data=squamata_dataset, 
                        correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 
 summary(model_squamata_svl_past)
@@ -478,44 +489,47 @@ summary(model_squamata_svl_past)
 squamata_past <- plot(model_squamata_svl_past, main= "Past climate data")
 
 # Present data 
-squamata_dataset_trans <- decostand(squamata_dataset[,2:4], "normalize")
-squamata_dataset_trans <- cbind(Species = squamata_dataset[,1],squamata_dataset_trans)
-squamata_dataset_trans
+#squamata_dataset_trans <- decostand(squamata_dataset[,2:4], "normalize")
+#squamata_dataset_trans <- cbind(Species = squamata_dataset[,1],squamata_dataset_trans)
+#squamata_dataset_trans
 
-model_squamata_svl <- gls(trait_rate ~ OMI + Tol, data=squamata_dataset_trans, 
+# False convergence model se não fizer a multiplicação do trait por mil 
+model_squamata_svl <- gls(trait_rate * 1000 ~ OMI + Tol, data=squamata_dataset, 
                        correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 summary(model_squamata_svl)
 
 squamata_present <- plot(model_squamata_svl, main= "Present climate data")
 
-plot_grid(squamata_past, squamata_present, align = "h", labels = NULL)
+plot_grid(squamata_past,
+squamata_present, align = "h", labels = NULL)
 ```
 
 #### 2.3. Birds
 ```{r}
 # Past data
-birds_dataset_trans_past <- decostand(birds_dataset_past[,2:4], "normalize")
-birds_dataset_trans_past <- cbind(Species = birds_dataset_past[,1],birds_dataset_trans_past)
-birds_dataset_trans_past
+#birds_dataset_trans_past <- decostand(birds_dataset_past[,2:4], "normalize")
+#birds_dataset_trans_past <- cbind(Species = birds_dataset_past[,1],birds_dataset_trans_past)
+#birds_dataset_trans_past
 
-model_birds_svl_past <- gls(trait_rate ~ OMI + Tol, data=birds_dataset_trans_past, 
+model_birds_svl_past <- gls(trait_rate ~ OMI + Tol, data=birds_dataset_past, 
                        correlation = corPagel(1,birds_phy_pgls, form = ~Species))
 
 summary(model_birds_svl_past)
-R2(model_squamata_svl_past)
+# R2(model_squamata_svl_past)
 
 # plot
 birds_past <- plot(model_birds_svl_past, main= "Past climate data")
 
 # Present data 
-birds_dataset_trans <- decostand(birds_dataset[,2:4], "normalize")
-birds_dataset_trans <- cbind(Species = birds_dataset[,1], birds_dataset_trans)
-birds_dataset_trans
+#birds_dataset_trans <- decostand(birds_dataset[,2:4], "normalize")
+#birds_dataset_trans <- cbind(Species = birds_dataset[,1], birds_dataset_trans)
+#birds_dataset_trans
 
 model_birds_svl <- gls(trait_rate ~ OMI + Tol, data=birds_dataset, 
                        correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+
 summary(model_birds_svl)
-R2(model_birds_svl)
+# R2(model_birds_svl) erro
 
 # plot
 birds_present <- plot(model_birds_svl, main= "Present climate data")
@@ -526,28 +540,28 @@ plot_grid(birds_past, birds_present, align = "h", labels = NULL)
 #### 2.4. Mammals
 ```{r}
 # Past data
-mammals_dataset_trans_past <- decostand(mammals_dataset_past[,2:4], "normalize")
-mammals_dataset_trans_past <- cbind(Species = mammals_dataset_past[,1],mammals_dataset_trans_past)
-mammals_dataset_trans_past
+#mammals_dataset_trans_past <- decostand(mammals_dataset_past[,2:4], "normalize")
+#mammals_dataset_trans_past <- cbind(Species = mammals_dataset_past[,1],mammals_dataset_trans_past)
+#mammals_dataset_trans_past
 
-model_mammals_svl_past <- gls(trait_rate ~ OMI + Tol, data=mammals_dataset_trans_past, 
+model_mammals_svl_past <- gls(trait_rate ~ OMI + Tol, data=mammals_dataset_past, 
                        correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
 
 summary(model_mammals_svl_past)
-R2(model_mammals_svl_past)
+# R2(model_mammals_svl_past) erro
 
 # plot
 mammals_past <- plot(model_mammals_svl_past, main= "Past climate data")
 
 # Present data 
-mammals_dataset_trans <- decostand(mammals_dataset[,2:4], "normalize")
-mammals_dataset_trans <- cbind(Species = mammals_dataset[,1], mammals_dataset_trans)
-mammals_dataset_trans
+#mammals_dataset_trans <- decostand(mammals_dataset[,2:4], "normalize")
+#mammals_dataset_trans <- cbind(Species = mammals_dataset[,1], mammals_dataset_trans)
+#mammals_dataset_trans
 
-model_mammals_svl <- gls(trait_rate ~ OMI + Tol, data=mammals_dataset_trans, 
+model_mammals_svl <- gls(trait_rate ~ OMI + Tol, data=mammals_dataset, 
                        correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
 summary(model_mammals_svl)
-R2(model_mammals_svl)
+# R2(model_mammals_svl) erro
 
 # plot
 mammals_present <- plot(model_mammals_svl, main= "Present climate data")
@@ -558,5 +572,20 @@ plot_grid(mammals_past, mammals_present, align = "h", labels = NULL)
 
 ### 3.0. Plots
 ```{r}
+models <- list(Frogs = model_anura_svl,
+               Squamates = model_squamata_svl,
+               Birds = model_birds_svl, 
+               Mammals = model_mammals_svl)
 
-```
+modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
+
+``` 
+```{r}
+models <- list(Frogs = model_anura_svl_past,
+               Squamates = model_squamata_svl_past,
+               Birds = model_birds_svl_past, 
+               Mammals = model_mammals_svl_past)
+
+modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
+
+``` 

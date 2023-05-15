@@ -1164,15 +1164,18 @@ temp_range_mammals_present <- df_merge_mammals %>%
 # Preparing dataset
 data_past <- as.data.frame(cbind(bio01 = bio01_past[,3], bio04 = bio04_past[,3], bio07 = bio07_past[,3],
                                  bio11 = bio11_past[,3], bio15 = bio15_past[,3], bio17 = bio17_past[,3]))
-v1 <- vifcor(data_past, th=0.5) # identify collinear variables that should be excluded
+
+# VIF
+v1 <- usdm::vifcor(data_past, th=0.5) # identify collinear variables that should be excluded
 v1
-# data_past_select <- exclude(data_past,v1) VIF < 3
+data_past_select <- usdm::exclude(data_past,v1) # VIF < 3
 
 # Preparing dataset
 data_present <- climate_dataset %>% select(BIO01, BIO04, BIO07, BIO11, BIO12, BIO15, BIO17)
-v2 <- vifcor(data_present, th=0.7) # identify collinear variables that should be excluded
+
+v2 <- usdm::vifcor(data_present, th=0.8) # identify collinear variables that should be excluded
 v2
-data_present_select <- exclude(data_present,v2) # VIF < 3
+data_present_select <- usdm::exclude(data_present,v2) # VIF < 3
 ```
 
 #### 3.2. Past climate
@@ -1200,8 +1203,13 @@ climate_past <- data.frame(BIO01_past = data_extract1$layer,
 
 ```{r}
 # climate data
-# present
-dudi_past <- dudi.pca(climate_past, scale = TRUE, scan = FALSE)
+# past
+
+?decostand
+
+climate_past_trans <- decostand(climate_past, "standardize")
+
+dudi_past <- dudi.pca(climate_past_trans, scale = TRUE, scan = FALSE)
 
 # niche species
 nic_amphibia_past <- niche(dudi_past, amphibia_composition, scann = FALSE)
@@ -1259,7 +1267,8 @@ niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
 ```{r}
 # climate data
 # present
-dudi_present <- dudi.pca(data_present_select, scale = TRUE, scan = FALSE)
+climate_present_trans <- decostand(data_present_select, "standardize")
+dudi_present <- dudi.pca(climate_present_trans, scale = TRUE, scan = FALSE)
 
 # niche species
 nic_amphibia <- niche(dudi_present, amphibia_composition, scann = FALSE)
