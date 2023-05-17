@@ -1204,55 +1204,15 @@ climate_past <- data.frame(BIO01_past = data_extract1$layer,
 ```{r}
 # climate data
 # past
+#climate_past_trans <- decostand(climate_past, "standardize")
 
-?decostand
-
-climate_past_trans <- decostand(climate_past, "standardize")
-
-dudi_past <- dudi.pca(climate_past_trans, scale = TRUE, scan = FALSE)
+dudi_past <- dudi.pca(climate_past, scale = TRUE, center = TRUE, scan = FALSE)
 
 # niche species
 nic_amphibia_past <- niche(dudi_past, amphibia_composition, scann = FALSE)
 nic_squamata_past <- niche(dudi_past, squamata_composition, scann = FALSE)
 nic_birds_past <- niche(dudi_past, birds_composition, scann = FALSE)
 nic_mammals_past <- niche(dudi_past, mammals_composition, scann = FALSE)
-
-# number of sites
-N_amp <- dim(nic_amphibia_past$ls)[1]
-N_squ <- dim(nic_squamata_past$ls)[1]
-N_bir <- dim(nic_birds_past$ls)[1]
-N_mam <- dim(nic_mammals_past$ls)[1]
-
-#Create a factor which defines the subsets
-fact_amp <- factor(c(rep(1,N_amp/2),rep(2,N_amp/2)))
-fact_squ <- factor(c(rep(1,N_squ/2),rep(2,N_squ/2)))
-fact_bir <- factor(c(rep(1,N_bir/2),rep(2,N_bir/2)))
-fact_mam <- factor(c(rep(1,N_mam/2),rep(2,N_mam/2)))
-
-# nic1 will be use as reference and fact will be use to define the subniches environment
-subnic_amphibia_past <- subniche(nic_amphibia_past, fact_amp)
-subnic_squamata_past <- subniche(nic_squamata_past, fact_squ)
-subnic_birds_past <- subniche(nic_birds_past, fact_bir)
-subnic_mammals_past <- subniche(nic_mammals_past, fact_mam)
-
-#eigenbar(subnic_amphibia_past)
-#eigenbar(subnic_squamata_past)
-#eigenbar(subnic_birds_past)
-#eigenbar(subnic_mammals_past)
-
-#kable(dudi_present$tab) # climate variables
-#
-## niche traits of each specie
-#kable(niche.param(nic_amphibia)) 
-#kable(niche.param(nic_squamata))
-#kable(niche.param(nic_birds))
-#kable(niche.param(nic_mammals)) 
-#
-# randomization
-# rtest(nic_amphibia,1000)
-# rtest(nic_squamata,1000)
-# rtest(nic_birds,1000)
-# rtest(nic_mammals,1000)
 
 # to dataframe
 niche_amphibia_traits_past <- as.data.frame(niche.param(nic_amphibia_past))
@@ -1267,54 +1227,14 @@ niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
 ```{r}
 # climate data
 # present
-climate_present_trans <- decostand(data_present_select, "standardize")
-dudi_present <- dudi.pca(climate_present_trans, scale = TRUE, scan = FALSE)
+#climate_present_trans <- decostand(data_present_select, "standardize")
+dudi_present <- dudi.pca(data_present_select, scale = TRUE, center = TRUE, scan = FALSE)
 
 # niche species
 nic_amphibia <- niche(dudi_present, amphibia_composition, scann = FALSE)
 nic_squamata <- niche(dudi_present, squamata_composition, scann = FALSE)
 nic_birds <- niche(dudi_present, birds_composition, scann = FALSE)
 nic_mammals <- niche(dudi_present, mammals_composition, scann = FALSE)
-
-# number of sites
-N_amp <- dim(nic_amphibia$ls)[1]
-N_squ <- dim(nic_squamata$ls)[1]
-N_bir <- dim(nic_birds$ls)[1]
-N_mam <- dim(nic_mammals$ls)[1]
-
-#Create a factor which defines the subsets
-fact_amp <- factor(c(rep(1,N_amp/2),rep(2,N_amp/2)))
-fact_squ <- factor(c(rep(1,N_squ/2),rep(2,N_squ/2)))
-fact_bir <- factor(c(rep(1,N_bir/2),rep(2,N_bir/2)))
-fact_mam <- factor(c(rep(1,N_mam/2),rep(2,N_mam/2)))
-
-# nic1 will be use as reference and fact will be use to define the subniches environment
-subnic_amphibia <- subniche(nic_amphibia, fact_amp)
-subnic_squamata <- subniche(nic_squamata, fact_squ)
-subnic_birds <- subniche(nic_birds, fact_bir)
-subnic_mammals <- subniche(nic_mammals, fact_mam)
-
-eigenbar(subnic_amphibia)
-eigenbar(subnic_squamata)
-eigenbar(subnic_birds)
-eigenbar(subnic_mammals)
-
-#kable(dudi_present$tab) # climate variables
-#
-## niche traits of each specie
-#kable(niche.param(nic_amphibia)) 
-#kable(niche.param(nic_squamata))
-#kable(niche.param(nic_birds))
-#kable(niche.param(nic_mammals)) 
-#
-# randomization
-# rtest(nic_amphibia,1000)
-# rtest(nic_squamata,1000)
-# rtest(nic_birds,1000)
-# rtest(nic_mammals,1000)
-
-# to dataframe
-?as.data.frame
 
 niche_amphibia_traits <- as.data.frame(niche.param(nic_amphibia))
 niche_squamata_traits <- as.data.frame(niche.param(nic_squamata))
