@@ -466,6 +466,13 @@ plot(resid(model_anura_svl_past) ~ fitted(model_anura_svl_past))
 qqnorm(resid(model_anura_svl_past_normal))
 qqline(resid(model_anura_svl_past_normal))
 plot(model_anura_svl)
+
+library(nlme)
+library(lmeInfo)
+
+model_anura_svl$dims
+
+g_mlm(model_anura_svl, p_const = c(0,1), r_const = c(0,1,1,1,1), infotype = "expected")
 ```
 
 #### 2.2. Squamata
@@ -479,7 +486,7 @@ squamata_dataset_full_normalizado <- decostand(squamata_dataset_full[,2:6], "nor
 squamata_dataset_full_normalizado <- cbind(Species = squamata_dataset_full[,1],squamata_dataset_full_normalizado)
 
 # pgls models
-model_squamata_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=squamata_dataset_full , 
+model_squamata_svl <- gls((trait_rate*1000) ~ OMI + Tol + OMI_past + Tol_past, data=squamata_dataset_full , 
                        correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 
 model_squamata_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
@@ -526,7 +533,7 @@ mammals_dataset_full_normalizado <- decostand(mammals_dataset_full[,2:6], "norma
 mammals_dataset_full_normalizado <- cbind(Species = mammals_dataset_full[,1],mammals_dataset_full_normalizado)
 
 # pgls models
-model_mammals_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full, 
+model_mammals_svl <- gls((trait_rate*1000) ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full, 
                        correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
 
 model_mammals_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full_normalizado, 
@@ -543,10 +550,68 @@ models <- list(Frogs = model_anura_svl,
                Squamates = model_squamata_svl,
                Birds = model_birds_svl, 
                Mammals = model_mammals_svl)
-
 modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
 
+# per specie
+cm <- c('Tol_past' = 'Tolerance past',
+        'OMI_past' = 'OMI past', 
+        'Tol' = 'Tolerance present',
+        'OMI' = 'OMI present')
+
+# frogs
+b <- list(geom_vline(xintercept = 0, color = 'black'),
+          annotate("rect", alpha = .0,
+                   xmin = -.1, xmax = .1, 
+                   ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .3, 
+                     size = 5, color = 'green4'), theme_classic())
+
+modelplot(model_anura_svl, background = b, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
+
+# squamata
+c <- list(geom_vline(xintercept = 0, color = 'black'),
+          annotate("rect", alpha = .0,
+                   xmin = -5.0, xmax = 5, 
+                   ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .3, 
+                     size = 5, color = 'green'))
+
+modelplot(model_squamata_svl, background = c, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
+
+# birds
+d <- list(geom_vline(xintercept = 0, color = 'black'),
+          annotate("rect", alpha = .1,
+                   xmin = -.0001, xmax = .0001, 
+                   ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .3, 
+                     size = 5, color = 'burlywood4'), theme_classic())
+
+modelplot(model_birds_svl, background = d, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
+
+# birds
+d <- list(geom_vline(xintercept = 0, color = 'black'),
+          annotate("rect", alpha = .0,
+                   xmin = -20000, xmax = 20000, 
+                   ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .5, 
+                     size = 5))
+
+modelplot(model_birds_svl, background = d, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
+
+# mammals
+theme_set(
+    theme_classic(base_size = 15))
+
+a <- list(geom_vline(xintercept = 0, color = 'black'),
+          annotate("rect", alpha = .1,
+          xmin = -.0001, xmax = .0001, 
+          ymin = -Inf, ymax = Inf),
+          geom_point(aes(y = term, x = estimate), alpha = .0, 
+          size = 10, color = 'brown4'))
+
+modelplot(model_mammals_svl, background = a, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
 ``` 
+
 ```{r}
 models <- list(Frogs = model_anura_svl_normalizado,
                Squamates = model_squamata_svl_normalizado,
@@ -557,3 +622,44 @@ modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
 modelplot(model_anura_svl_normalizado, coef_omit = 'Interc')
 modelplot(model_mammals_svl_normalizado, coef_omit = 'Interc')
 ``` 
+
+Phylogenetic plots
+```{r}
+# substitute values in edge.length with rate trait evolution
+for (i in 1:nrow(amphibia_dataset_full)) {
+  species <- amphibia_dataset_full$Species[i]
+  edge_length <- (amphibia_dataset_full$trait_rate*1000)[i]
+  
+  anura_phy_pgls$edge.length[anura_phy_pgls$tip.label == species] <- edge_length
+}
+write.tree(anura_phy_pgls, "frogs_tree.tre")
+tree_teste <- full_join(tree, teste, by = 'Species')
+
+###
+tree <- anura_phy_pgls
+teste <- amphibia_dataset_full
+teste$trait_rate <- teste$trait_rate*1000
+View(teste)
+
+tree$Valor <- teste$trait_rate[match(tree$tip.label, teste$Species)]
+
+library(geiger)
+
+rownames(teste) <- teste$Species
+chk<-name.check(tree,teste)
+summary(chk)
+
+scale_insect.pruned<-drop.tip(scale_insect.tre, chk$tree_not_data)
+
+ln.hosts<-setNames(log(teste$trait_rate),rownames(teste))
+
+host.map<-contMap(tree,ln.hosts,plot=FALSE)
+host.map<-setMap(host.map,c("forestgreen","firebrick1"))
+
+plot(host.map,lwd=c(1,5),outline=FALSE,ftype="off", type='fan')
+
+
+plot(setMap(host.map,c("forestgreen","firebrick1")),
+     fsize=c(0.5,0.6),leg.txt="Body mass rate evolution",
+     dig=2,outline=FALSE,ftype="off", type='fan', lwd=c(1,5))
+```
