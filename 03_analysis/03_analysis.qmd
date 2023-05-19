@@ -13,10 +13,11 @@ library(vegan) # normalize dataset
 library(picante) # prune sample with phy
 library(tidyverse) # data science handling
 library(phytools) # phylogenetic data
+library(geiger) # phylogenetic plot
 library(nlme) # gls analysis
 library(cowplot) # plots
 library(modelsummary) # modelplots
-library(rr2)
+library(rr2) # r2 pgls
 ```
 
 ### 0.2. Load data
@@ -545,6 +546,7 @@ summary(model_mammals_svl_normalizado)
 
 
 ### 3.0. Plots
+#### 3.1. Model plots
 ```{r}
 models <- list(Frogs = model_anura_svl,
                Squamates = model_squamata_svl,
@@ -563,7 +565,7 @@ b <- list(geom_vline(xintercept = 0, color = 'black'),
           annotate("rect", alpha = .0,
                    xmin = -.1, xmax = .1, 
                    ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .3, 
+          geom_point(aes(y = term, x = estimate), alpha = .0, 
                      size = 5, color = 'green4'), theme_classic())
 
 modelplot(model_anura_svl, background = b, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
@@ -573,27 +575,17 @@ c <- list(geom_vline(xintercept = 0, color = 'black'),
           annotate("rect", alpha = .0,
                    xmin = -5.0, xmax = 5, 
                    ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .3, 
+          geom_point(aes(y = term, x = estimate), alpha = .0, 
                      size = 5, color = 'green'))
 
 modelplot(model_squamata_svl, background = c, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
 
 # birds
 d <- list(geom_vline(xintercept = 0, color = 'black'),
-          annotate("rect", alpha = .1,
-                   xmin = -.0001, xmax = .0001, 
-                   ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .3, 
-                     size = 5, color = 'burlywood4'), theme_classic())
-
-modelplot(model_birds_svl, background = d, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
-
-# birds
-d <- list(geom_vline(xintercept = 0, color = 'black'),
           annotate("rect", alpha = .0,
                    xmin = -20000, xmax = 20000, 
                    ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .5, 
+          geom_point(aes(y = term, x = estimate), alpha = .0, 
                      size = 5))
 
 modelplot(model_birds_svl, background = d, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
@@ -623,19 +615,9 @@ modelplot(model_anura_svl_normalizado, coef_omit = 'Interc')
 modelplot(model_mammals_svl_normalizado, coef_omit = 'Interc')
 ``` 
 
-Phylogenetic plots
+#### 3.2. Phylogenetic plots
 ```{r}
-# substitute values in edge.length with rate trait evolution
-for (i in 1:nrow(amphibia_dataset_full)) {
-  species <- amphibia_dataset_full$Species[i]
-  edge_length <- (amphibia_dataset_full$trait_rate*1000)[i]
-  
-  anura_phy_pgls$edge.length[anura_phy_pgls$tip.label == species] <- edge_length
-}
-write.tree(anura_phy_pgls, "frogs_tree.tre")
-tree_teste <- full_join(tree, teste, by = 'Species')
-
-###
+# Frogs
 tree <- anura_phy_pgls
 teste <- amphibia_dataset_full
 teste$trait_rate <- teste$trait_rate*1000
@@ -643,23 +625,72 @@ View(teste)
 
 tree$Valor <- teste$trait_rate[match(tree$tip.label, teste$Species)]
 
-library(geiger)
-
 rownames(teste) <- teste$Species
 chk<-name.check(tree,teste)
 summary(chk)
-
-scale_insect.pruned<-drop.tip(scale_insect.tre, chk$tree_not_data)
 
 ln.hosts<-setNames(log(teste$trait_rate),rownames(teste))
 
 host.map<-contMap(tree,ln.hosts,plot=FALSE)
 host.map<-setMap(host.map,c("forestgreen","firebrick1"))
 
-plot(host.map,lwd=c(1,5),outline=FALSE,ftype="off", type='fan')
+plot(setMap(host.map,c("#2c7fb8", "#edf8b1")),
+     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
+     dig=2,outline=FALSE,ftype="i", type='fan', lwd=c(4,10))
 
+# Squamata
+squamata_phy_pgls
+squamata_dataset_full
 
-plot(setMap(host.map,c("forestgreen","firebrick1")),
-     fsize=c(0.5,0.6),leg.txt="Body mass rate evolution",
-     dig=2,outline=FALSE,ftype="off", type='fan', lwd=c(1,5))
+squamata_phy_pgls$Valor <- squamata_dataset_full$trait_rate[match(squamata_phy_pgls$tip.label, squamata_dataset_full$Species)]
+
+rownames(squamata_dataset_full) <- squamata_dataset_full$Species
+chk<-name.check(squamata_phy_pgls,squamata_dataset_full)
+summary(chk)
+
+squamata.hosts<-setNames(log(squamata_dataset_full$trait_rate),rownames(squamata_dataset_full))
+
+squamata.map<-contMap(squamata_phy_pgls,squamata.hosts,plot=FALSE)
+#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
+
+plot(setMap(squamata.map,c("#2c7fb8", "#edf8b1")),
+     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
+     dig=2,outline=FALSE,ftype="off", type='fan',lwd=c(4,10))
+
+# Birds
+birds_phy_pgls
+birds_dataset_full
+
+birds_phy_pgls$Valor <- birds_dataset_full$trait_rate[match(birds_phy_pgls$tip.label, birds_dataset_full$Species)]
+
+rownames(birds_dataset_full) <- birds_dataset_full$Species
+chk<-name.check(birds_phy_pgls,birds_dataset_full)
+summary(chk)
+
+birds.hosts<-setNames(log(birds_dataset_full$trait_rate),rownames(birds_dataset_full))
+
+birds.map<-contMap(birds_phy_pgls,birds.hosts,plot=FALSE)
+#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
+
+plot(setMap(birds.map,c("#2c7fb8", "#edf8b1")),
+     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
+     dig=2,outline=FALSE,ftype="off", type='fan', lwd=c(3,10))
+
+# Mammals
+mammals_phy_pgls
+mammals_dataset_full
+
+rownames(mammals_dataset_full) <- mammals_dataset_full$Species
+chk<-name.check(mammals_phy_pgls,mammals_dataset_full)
+summary(chk)
+
+mammals.hosts<-setNames(log(mammals_dataset_full$trait_rate),rownames(mammals_dataset_full))
+
+mammals.map<-contMap(mammals_phy_pgls,mammals.hosts,plot=FALSE)
+#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
+
+plot(setMap(mammals.map,c("#2c7fb8", "#edf8b1")),
+     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
+     dig=2,outline=FALSE,ftype="i", type='fan', lwd=c(3,10))
+
 ```
