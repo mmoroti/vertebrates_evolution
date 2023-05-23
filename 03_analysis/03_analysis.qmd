@@ -462,18 +462,13 @@ model_anura_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past , data=amphi
 # results
 summary(model_anura_svl_normalizado)
 summary(model_anura_svl)
+R2(model_anura_svl)
 # check models
 plot(resid(model_anura_svl_past) ~ fitted(model_anura_svl_past))
 qqnorm(resid(model_anura_svl_past_normal))
 qqline(resid(model_anura_svl_past_normal))
 plot(model_anura_svl)
 
-library(nlme)
-library(lmeInfo)
-
-model_anura_svl$dims
-
-g_mlm(model_anura_svl, p_const = c(0,1), r_const = c(0,1,1,1,1), infotype = "expected")
 ```
 
 #### 2.2. Squamata
@@ -487,16 +482,19 @@ squamata_dataset_full_normalizado <- decostand(squamata_dataset_full[,2:6], "nor
 squamata_dataset_full_normalizado <- cbind(Species = squamata_dataset_full[,1],squamata_dataset_full_normalizado)
 
 # pgls models
-model_squamata_svl <- gls((trait_rate*1000) ~ OMI + Tol + OMI_past + Tol_past, data=squamata_dataset_full , 
-                       correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
+squamata_phy_pgls_u <- force.ultrametric(squamata_phy_pgls)
 
-model_squamata_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
-                                      data=squamata_dataset_full_normalizado, 
-                                      correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
+model_squamata_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=squamata_dataset_full , 
+                       correlation = corPagel(1,squamata_phy_pgls_u, form = ~Species))
+
+#model_squamata_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
+#                                      data=squamata_dataset_full_normalizado, 
+#                                      correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
 
 summary(model_squamata_svl)
-summary(model_squamata_svl_normalizado)
+R2(model_squamata_svl_normalizado)
 
+#summary(model_squamata_svl_normalizado)
 qqnorm(resid(model_squamata_svl))
 qqline(resid(model_squamata_svl))
 ```
@@ -512,14 +510,18 @@ birds_dataset_full_normalizado <- decostand(birds_dataset_full[,2:6], "normalize
 birds_dataset_full_normalizado <- cbind(Species = birds_dataset_full[,1],birds_dataset_full_normalizado)
 
 # pgls models
-model_birds_svl <- gls(trait_rate*10 ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full, 
-                       correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+is.ultrametric(birds_phy_pgls)
+birds_phy_pgls_u <- force.ultrametric(birds_phy_pgls)
 
-model_birds_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full_normalizado, 
-                       correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+model_birds_svl <- gls(trait_rate*10 ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full, 
+                       correlation = corPagel(1,birds_phy_pgls_u, form = ~Species))
 
 summary(model_birds_svl)
-summary(model_birds_svl_normalizado)
+R2(model_birds_svl)
+
+#model_birds_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
+# data=birds_dataset_full_normalizado, correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+# summary(model_birds_svl_normalizado)
 
 ```
 
@@ -541,6 +543,8 @@ model_mammals_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_pas
                        correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
 
 summary(model_mammals_svl)
+R2(model_mammals_svl)
+
 summary(model_mammals_svl_normalizado)
 ```
 

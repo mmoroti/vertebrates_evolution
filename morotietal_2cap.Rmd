@@ -1,18 +1,45 @@
----
-title: "morotietal._2cap"
-author: "matheusmoroti"
-date: "2023-04-09"
-output: word_document
----
+Influence of the climatic niche on the rate of phenotypic evolution in terrestrial vertebrates from the Atlantic Forest
 
-Introdução 
+1. Introduction
 
-Apenas um teste[a]
+2. Materials and methods
+2.1. Atlantic forest species list
 
-Materiais e métodos
+  Similar to first chapter, we obtained our species list building a presence-absence matrices separately for each group of vertebrates by overlaying species occurrence polygons on a 10x10 km grid with 0.5º cells. Using the letsR package in R, we considered a species to be present in a cell if at least 50% of the species' polygon covered the cell. We utilized the consensus extent of the Atlantic Forest proposed by Muylaert et al. (2018) to determine species occurrence. We obtained occurrence amphibian data from IUCN (2021) and complemented with shapefiles from Vasconcelos et al. (2019). Squamates data occurrence was sourced from Roll et al. (2017), while bird occurrence data from BirdLife (2015), and mammals from IUCN (2021). Our species pool comprised native and non-migrating species across the entire Atlantic Forest. In total, our presence-absence matrices included 518 frog species, 402 squamates, 815 birds, and 236 mammals.
+
+2.2. Phylogeny
+
+  To obtain the rate evolution of size (Frogs and squamates) and body mass (Mammals and birds) of vertebrates, we used the most comprehensive tree available in the literature for each group. We used the consensus tree for amphibian containing 7,239 species of Jetz & Pyron (2018). For squamates, we used the fully-sampled consensus tree with 9,754 species of Tonini et al. (2016). For mammals, we used the fully-sampled tree of Upham et al. (2019). For birds, we used the tree proposed by Jetz et al. (2012), with 9,993 bird species. Birds are the only group to which a consensus tree is not provided. Thus, following Rubolini et al. (2015), we generated 10,000 posterior trees to our species pool based on the 'Hackett' backbone (Jetz et al., 2012). Then, we built a maximum clade credibility topology (MCCT) with the DendroPy and SumTrees packages in Python.
+
+2.3. Trait data
+
+  For each grid cell, we calculated the mean of potential net primary productivity (npp) obtained from the CHELSA dataset (Brun et al., 2022). The npp represents the amount of carbon dioxide that is removed from the atmosphere, so it is a proxy to indicate the amount of biomass that is produced, a key function of the ecosystem (Schimel, 1995)  ; and iii) climate – climatic variables determine range limits in vertebrates (e.g., Wiens et al., 2006; Botero et al., 2014), and potentially influence large-scale species distributions. We firstly chose nine bioclimatic variables from CHELSA dataset (Brun et al., 2022): Mean annual air temperature (BIO1), Mean Diurnal Temperature Range (BIO2), Isothermality (BIO3), Temperature Seasonality (BIO4), Temperature Annual Range (BIO7), Mean Temperature of Coldest Quarter (BIO11), Annual precipitation amount (BIO12), Precipitation Seasonality (BIO15), and Precipitation of Driest Quarter (BIO17). After testing for multicollinearity, we excluded BIO1 and BIO11 that had Variation Inflation Factor >10 from further analysis. The climatic and npp variables obtained from CHELSA correspond to the average of their collection period, between the years 1981–2010
+  - OMI e Tol
+  We obtained data on habitat, body size, and diel activity from the following sources: i) amphiBIO (Oliveira et al., 2017) and Vasconcelos et al. (2019) for frogs; ii) Marques et al. (2019) for squamates; iii) Elton Traits (Wilman et al., 2014) for birds and mammals, and complement with PanTHERIA (Jones et al., 2009) and Phylacine (Faurby et al. 2018) for mammals. We also complemented them with the literature for 9% of frogs, 22% of squamates, and 10% of mammals (Supplementary material). However, 84 frog (~17%), 135 squamate (~34%), 107 bird (~13%), and 41 mammal species (~17%) had missing trait values. Thus, they were excluded from the analyses, resulting in a functional database with 434, 267, 708, and 195 species, respectively. 
+  We pruned the species to which we had occurrence and trait data from the respective phylogenies using the R package picante (Kembel et al., 2010). Yet, 24 frog (~3%), 70 birds (~10%), and 28 mammals (~14%) species had not been sampled in the phylogenies and were removed from analysis. Thus, our final dataset contained 421 frog, 261 squamates, 638 birds, and 167 non-flying mammal species. Our final dataset corresponds to ~60% of amphibian richness (707 species), ~53% of reptiles (492 species), 62.2% of birds (1025 species), and ~64% of mammals (262 species) known to occur in the Atlantic Forest (Figueiredo et al., 2021).
+
+2.4. Rate of phenotypic evolution 
+
+We further estimated rates of trait evolution
+using BAMM v.2.5.0 [35] with the ‘BAMMtools’ R package to
+generate the control file (including priors) and to extract the
+results [49]. We chose BAMM to estimate trait evolution because
+it outperforms other methods [48]. For diversification analysis in
+BAMM, we set the rate shift prior to γ = 1 and sampled the
+models every 1000 generations for a total of 11 million generations using a burn-in of 1 million generations. The number of
+generations and burn-in used to estimate traits evolutionary
+rates varied and were chosen based on the visual inspection of
+the log-likelihood trace of the MCMC output and the effect
+sample sizes (greater than or equal to 200). 
+
+2.5. Statistical analysis
 
 Results
 
+![Figure 1](E:/repos/vertebrates_evolution/figures/figure 1.jpg)
+
+![Figure 2](E:/repos/vertebrates_evolution/figures/figure 2.jpg)
+![Figure 3](E:/repos/vertebrates_evolution/figures/figure 3.jpg)
 Discussion
 
-[a]Não gostei
+References
