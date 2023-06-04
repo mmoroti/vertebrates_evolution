@@ -451,13 +451,13 @@ amphibia_dataset_full <- left_join(amphibia_dataset, amphibia_dataset_past[,1:3]
 # dataset normalizado
 amphibia_dataset_full_normalizado <- decostand(amphibia_dataset_full[,2:6], "normalize")
 amphibia_dataset_full_normalizado <- cbind(Species = amphibia_dataset_full[,1],amphibia_dataset_full_normalizado)
-
+View(amphibia_dataset_full)
 # pgls models
-model_anura_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past , data=amphibia_dataset_full_normalizado,
-                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+model_anura_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past , data=amphibia_dataset_full_normalizado,correlation = corPagel(1,anura_phy_pgls, form = ~Species))
 
-model_anura_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past , data=amphibia_dataset_full, 
-                       correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+?gls
+
+model_anura_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past ,REML=TRUE, data=amphibia_dataset_full, correlation = corPagel(1,anura_phy_pgls, form = ~Species))
 
 # results
 summary(model_anura_svl_normalizado)
@@ -697,4 +697,83 @@ plot(setMap(mammals.map,c("#2c7fb8", "#edf8b1")),
      fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
      dig=2,outline=FALSE,ftype="i", type='fan', lwd=c(3,10))
 
+```
+```{r}
+# plot phy-climate niche
+# frogs
+anura_phy_pgls
+
+rownames(amphibia_dataset_full) <- amphibia_dataset_full[,1]
+
+amphibia_dataset_full <- amphibia_dataset_full[,-1]
+amphibia_dataset_full <- amphibia_dataset_full[,-3]
+
+col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
+amphibia_dataset_full_v2 <- amphibia_dataset_full[, col_order]
+
+phy_niche_anura <- phylo4d(anura_phy_pgls, amphibia_dataset_full_v2)
+
+# plot
+gridplot(phy_niche_anura,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
+
+barplot(phy_niche_anura, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
+        tree.type = "fan", bar.col = "grey35")
+
+# squamata
+squamata_phy_pgls
+
+rownames(squamata_dataset_full) <- squamata_dataset_full[,1]
+
+squamata_dataset_full <- squamata_dataset_full[,-1]
+squamata_dataset_full <- squamata_dataset_full[,-3]
+
+col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
+squamata_dataset_full_v2 <- squamata_dataset_full[, col_order]
+
+phy_niche_squamata <- phylo4d(squamata_phy_pgls, squamata_dataset_full_v2)
+
+# plot
+gridplot(phy_niche_squamata,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
+
+barplot(phy_niche_squamata, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
+        tree.type = "fan", bar.col = "grey35")
+
+# birds
+birds_phy_pgls
+
+rownames(birds_dataset_full) <- birds_dataset_full[,1]
+
+birds_dataset_full <- birds_dataset_full[,-1]
+birds_dataset_full <- birds_dataset_full[,-3]
+
+col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
+birds_dataset_full_v2 <- birds_dataset_full[, col_order]
+
+phy_niche_birds <- phylo4d(birds_phy_pgls, birds_dataset_full_v2)
+
+# plot
+gridplot(phy_niche_birds,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
+
+barplot(phy_niche_anura, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
+        tree.type = "fan", bar.col = "grey35")
+
+
+# mammals
+mammals_phy_pgls
+
+rownames(mammals_dataset_full) <- mammals_dataset_full[,1]
+mammals_dataset_full <- mammals_dataset_full[,-1]
+mammals_dataset_full <- mammals_dataset_full[,-3]
+
+col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
+my_data2 <- mammals_dataset_full[, col_order]
+
+phy_niche <- phylo4d(mammals_phy_pgls, my_data2)
+
+# plot
+gridplot(phy_niche,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
+
+barplot(phy_niche, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
+        tree.type = "fan", bar.col = "grey35")
+gridplot(phy_niche)
 ```
