@@ -457,7 +457,7 @@ model_anura_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past 
 
 ?gls
 
-model_anura_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past ,REML=TRUE, data=amphibia_dataset_full, correlation = corPagel(1,anura_phy_pgls, form = ~Species))
+model_anura_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past , data=amphibia_dataset_full, correlation = corPagel(1,anura_phy_pgls, form = ~Species))
 
 # results
 summary(model_anura_svl_normalizado)
@@ -467,7 +467,7 @@ R2(model_anura_svl)
 plot(resid(model_anura_svl_past) ~ fitted(model_anura_svl_past))
 qqnorm(resid(model_anura_svl_past_normal))
 qqline(resid(model_anura_svl_past_normal))
-plot(model_anura_svl)
+frogs_diagnosis <- plot(model_anura_svl)
 
 ```
 
@@ -493,7 +493,7 @@ model_squamata_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=squ
 
 summary(model_squamata_svl)
 R2(model_squamata_svl_normalizado)
-
+squamata_diagnosis <- plot(model_squamata_svl)
 #summary(model_squamata_svl_normalizado)
 qqnorm(resid(model_squamata_svl))
 qqline(resid(model_squamata_svl))
@@ -513,14 +513,17 @@ birds_dataset_full_normalizado <- cbind(Species = birds_dataset_full[,1],birds_d
 is.ultrametric(birds_phy_pgls)
 birds_phy_pgls_u <- force.ultrametric(birds_phy_pgls)
 
-model_birds_svl <- gls(trait_rate*10 ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full, 
+model_birds_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full, 
                        correlation = corPagel(1,birds_phy_pgls_u, form = ~Species))
 
 summary(model_birds_svl)
 R2(model_birds_svl)
 
-#model_birds_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
-# data=birds_dataset_full_normalizado, correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+birds_diagnosis <- plot(model_birds_svl_normalizado)
+
+model_birds_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
+ data=birds_dataset_full_normalizado, correlation = corPagel(1,birds_phy_pgls, form = ~Species))
+plot(model_birds_svl_normalizado)
 # summary(model_birds_svl_normalizado)
 
 ```
@@ -542,15 +545,96 @@ model_mammals_svl <- gls((trait_rate*1000) ~ OMI + Tol + OMI_past + Tol_past, da
 model_mammals_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full_normalizado, 
                        correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
 
+mammals_diagnosis <- plot(model_mammals_svl)
+
 summary(model_mammals_svl)
 R2(model_mammals_svl)
 
 summary(model_mammals_svl_normalizado)
 ```
 
+### 3.0 PWR
+```{r}
+library(pez)
+library(phylobase)
+library(MCMCglmm)
+library(diversitree)
+library(ib)
 
-### 3.0. Plots
-#### 3.1. Model plots
+# EXEMPLO DO R
+# Combine in phylobase format, and then run a scatterplot
+c.data <- phylo4d(mammals_phy_pgls, mammals_dataset_full_normalizado)
+c.data
+
+plot(tipData(c.data)$Tol, tipData(c.data)$trait_rate, pch=rep(c(1,16), each=4),
+     xlab="Predictor", ylab="Response", bty="l") +
+  text(tipData(c.data)$Tol, tipData(c.data)$trait_rate,
+       labels=rownames(tipData(c.data)),pos=3, cex=0.8)
+
+# Phylogenetically weighted-regression with various weighting functions
+pwr.b <- coef(pwr(trait_rate ~ Tol+OMI , c.data, wfun="brownian"))
+
+pwr.m <- coef(pwr(y ~ x, combined.data, wfun="martins"))
+pwr.g <- coef(pwr(y ~ x, combined.data, wfun="gaussian"))
+pwr.G <- coef(pwr(y ~ x, combined.data, wfun="Gauss"))
+
+# Run a PGLS
+pgls <- gls(y ~ x, data=dat, correlation=corBrownian(phy=tree))
+
+# Contrast the PWR and PGLS estimates
+treePlot(addData(c.data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1],
+   gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb",
+   "gub")], show.tip.label=TRUE, lower=-1., upper=1.5, pex=2, aex=3.5)
+}
+
+# Tue Jun 27 15:55:25 2023 ------------------------------
+# aqui seguindo o script que o Diogo fez
+mod_div_bw_prw <- gls(log(trait_rate)~Tol+OMI, data = mammals_dataset_full_normalizado,
+                      correlation = corBrownian(phy=mammals_phy_pgls, form = ~Species))
+
+phyloWR <- pwr(log(trait_rate)~Tol+OMI, c.data,
+                      wfun="brownian", verbose=FALSE)
+
+pwr.cv(log(trait_rate)~Tol+OMI, c.data, holdout = tipData(c.data), 
+       coef = c("formula", "slope", "all"),model = c("pwr", "pgls"), wfun="brownian")
+
+get.opt.bw(log(trait_rate)~Tol+OMI, c.data, wfun="martins", method="subplex")
+
+bandw <- get.opt.bw(log(IR)~range,all_data, wfun="martins", method="subplex")
+
+bandw#0.06224979
+
+tp(addData(c.data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
+
+# Tue Jun 27 16:27:55 2023 ------------------------------
+all_data <- phylo4d(mammals_phy_pgls, mammals_dataset_full_normalizado)
+
+mod_div_bw_prw <- gls(log(trait_rate)~Tol+OMI, data = mammals_dataset_full_normalizado,
+                      correlation = corBrownian(phy=mammals_phy_pgls, form = ~Species))
+
+phyloWR <- getEst(pwr(log(trait_rate)~Tol+OMI,all_data, wfun="brownian", verbose=FALSE))
+
+bandw <- get.opt.bw(log(trait_rate)~Tol+OMI,all_data, wfun="martins", method="subplex")
+
+bandw#0.06224979
+
+tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
+```
+
+
+### 4.0. Plots
+#### 4.1. Model plots
+```{r}
+models <- list(Frogs = model_anura_svl,
+               Squamates = model_squamata_svl,
+               Birds = model_birds_svl, 
+               Mammals = model_mammals_svl)
+
+
+plot_grid(frogs_diagnosis, squamata_diagnosis, birds_diagnosis, mammals_diagnosis)
+```
+
+
 ```{r}
 models <- list(Frogs = model_anura_svl,
                Squamates = model_squamata_svl,
@@ -619,7 +703,7 @@ modelplot(model_anura_svl_normalizado, coef_omit = 'Interc')
 modelplot(model_mammals_svl_normalizado, coef_omit = 'Interc')
 ``` 
 
-#### 3.2. Phylogenetic plots
+#### 4.2. Phylogenetic plots
 ```{r}
 # Frogs
 tree <- anura_phy_pgls
