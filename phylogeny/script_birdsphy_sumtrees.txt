@@ -1,1 +1,0 @@
-python sumtrees.py --summary-target=mcct --min-clade-freq=0.50 --burnin=100 --collapse-negative-edges --ultrametric --rooted -e mean-age --output-tree-filepath=consensus_mcct.tre output.nex

@@ -10,662 +10,304 @@ editor: visual
 ```{r}
 library(ape) # phylogeny package
 library(phytools) # phylogeny package
-library(treeio) # phylogeny package
 library(picante) # phylogeny package
 library(geiger) # phylogeny package
-library(readxl) # read xlxs
 library(visdat) # missing data check
 library(tidyverse) # data science handling
-library(Rphylopars) # input data
+library(BAMMtools) # BAMM package
 ```
 
-### 0.1. Functions
+### 0.1. Load data
 
-I modified the function `fitGeospiza` so that it receives the two arguments (phy, trait) that will go in the model. The function's new name is `fit_modified`. I included the AICw function from the geiger package to also return us the value of AICw in the model comparison.
+#### 0.1. Trait data
 
 ```{r}
-fit_modified <- function(phy, trait){
-  #trait=match.arg(trait, c("body_size","litter_size"))
+group <- "Amphibia"
+#group <- "Reptilia"
+#group <- "Aves"
+#group <- "Mammalia"
+```
+
+```{r}
+TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
+
+group_trait <- TetraData %>%
+  filter(Class == group) %>%
+  filter(ImputedLength == 0) %>%
+  select(Scientific.Name, BodyLength_mm) %>%
+  mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
+  mutate(BodyLength_mm = log(BodyLength_mm))
+
+group_community <- group_trait %>%
+  pivot_wider(names_from = Scientific.Name, values_from = type)
+```
+
+#### 0.2. Phylogenetic data
+
+```{r}
+tree <- "amph_shl_new_Posterior_7238.1000.trees"
+#tree <- "squam_shl_new_Posterior_9755.1000.trees"
+#tree <- "mammals_birth_death_node-dated-completed-trees.nex"
+#tree <- "birds_hackett_allspecies.nex"
+```
+
+```{r}
+if (file.exists(file.path("BAMM", group, "/", tree))) {
+  trees <- tryCatch(
+    read.tree(file.path("BAMM", group, "/", tree)),
+    error = function(e) {
+      message("Erro ao usar read.tree. Tentando com read.nexus...")
+      read.nexus(file.path("BAMM", group, "/", tree))
+    }
+  )
+} else {
+  stop("O arquivo especificado não existe.")
+}
+
+# Test if trees are dichotomic (must return TRUE, if FALSE see the next step)
+# JUST RUN IT, DON'T CHANGE ANYTHING
+all(is.binary(trees))
+
+# If trees are polytomic you can dichotomize them using one of the
+# followings commands, I recommend the fix.poly because it
+# assigns branch lengths (randomly based on node heights)
+
+# If you got TRUE in the previous step, you can omit this
+
+# Using fix.poly (assign branch lengths)
+#for(i in 1:length(trees)){
+#  trees[[i]] <- fix.poly(trees[[i]], type = "resolve")
+#}
+
+# Using multi2di (don't assign branch lengths)
+# trees <- multi2di(trees)
+```
+
+### 1.0. Create files to BAMM analysis 
+
+1.1. Obtain samples of phylogeny
+
+```{r}
+# Generate a data frame to store the prior values
+# JUST RUN IT, DON'T CHANGE ANYTHING
+set.seed(123)
+sampled_trees <- sample(trees, 10)
+```
+
+1.2. Obtain the same species in phylogeny and traits
+
+```{r}
+especies_comuns <- intersect(
+  sampled_trees[[1]]$tip.label,  # spp na arvore
+  group_trait$Scientific.Name    # spp com traits
+)
+
+group_trait_filter <- group_trait %>%
+  filter(Scientific.Name %in% especies_comuns)
+
+svl_size <- as.numeric(group_trait_filter$BodyLength_mm) # change trait if needed
+names(svl_size) <- group_trait_filter$Scientific.Name
+```
+
+1.3. Save trait file
+
+```{r}
+write.table(svl_size, 
+            file = file.path("BAMM", group, "/", paste0(group,"_body_traits.txt")),
+            quote = FALSE, 
+            #sep = "\t",  
+            col.names = FALSE,
+            row.names = TRUE)
+```
+
+### 2.0. Priors of trait evolution
+
+```{r}
+priors_list <- list()
+
+priors_list <- lapply(seq_along(sampled_trees), function(i) {
   
-  # define set of models to compare
-  models=c("BM", "OU", "EB", "white")
-  summaries=c("diffusion", "Ornstein-Uhlenbeck", "early burst", "white noise")
+  sampled_trees[[i]] <- picante::prune.sample(group_community,
+                                              sampled_trees[[i]])
+  write.tree(sampled_trees[[i]], file = file.path("BAMM", group, paste0(group, "_Tree_", i, ".tre")))
   
-  ## ESTIMATING measurement error ##
-  aic.se=numeric(length(models))
-  lnl.se=numeric(length(models))
-  w.se=numeric(length(models))
-  for(m in 1:length(models)){
-    cat("\n\n\n\n\t*** ", paste(toupper(summaries[m]),": fitting ", sep=""), models[m],
-        " with SE *** \n", sep="")
-    tmp=fitContinuous(phy, trait,SE=NA, model=models[m],
-                      bounds=list(SE=c(0,0.5)), ncores=2)
-    print(tmp)
-    aic.se[m]=tmp$opt$aicc
-    lnl.se[m]=tmp$opt$lnL
-    w.se[m]=tmp$opt$aic
+  bamm_priors <- setBAMMpriors(
+    phy = sampled_trees[[i]],
+    traits = svl_size,
+    outfile = NULL
+  )
+  
+  priors_list[[i]] <- data.frame(
+    betaInitPrior = as.numeric(bamm_priors["betaInitPrior"]),    
+    betaShiftPrior = as.numeric(bamm_priors["betaShiftPrior"]),  
+    stringsAsFactors = FALSE
+  ) 
+}) 
+
+priors <- do.call(rbind, priors_list) 
+```
+
+### 3.0 Generate control file to BAMM analysis
+
+```{r}
+generateControlFile(file = file.path("BAMM", group, "/", paste0("controlfile_", group, ".txt")),
+                    type = 'trait', params = list(
+                      treefile = 'tree.new',
+                      traitfile= paste0(group, "_body_traits.txt"),
+                      numberOfGenerations = '350000000',
+                      overwrite = '1',
+                      #betaShiftPrior = as.numeric(priors['betaShiftPrior']),
+                      #betaInitPrior = 0.1,
+                      useObservedMinMaxAsTraitPriors = '1',
+                      expectedNumberOfShifts = 50, # > 5000 tips
+                      mcmcOutfile = "mcmc_out.txt",
+                      eventDataOutfile = "event_data.txt",
+                      eventDataWriteFreq = '100000',
+                      betaIsTimeVariablePrior = 0,
+                      deltaT = 0.01,
+                      numberOfChains = 4))
+
+# Read the divcontrol file (supplied template is for BAMM v.2.5.0, please do not modify it)
+divcontrol <- readLines(file.path("BAMM", group, "/", paste0("controlfile_", group, ".txt")), warn = FALSE)
+```
+
+### 4.0. Run BAMM analysis
+
+```{r}
+# Local directory output
+BAMMpath <- "D:/repos/vertebrates_evolution/BAMM"
+# Access the folder of group
+setwd(file.path("BAMM", group))
+```
+
+```{r}
+for(i in 1:length(sampled_trees)){
+  
+  # Create a temporal copy of the divcontrol file
+  tmp.divcontrol <- divcontrol
+  
+  # Replace the default path to read the tree files
+  tmp.divcontrol[20] <- paste("treefile = ", BAMMpath, "/", group, "/", group, "_Tree_", i, ".tre", sep = "")
+  
+  # Replace the default path to save the output run_info files
+  if(file.exists(paste(BAMMpath, "/", group, "/run_info", sep = "")) == FALSE){
+    dir.create(paste(BAMMpath, "/", group, "/run_info", sep = ""))
+    tmp.divcontrol[26] <- paste("runInfoFilename = ", BAMMpath, "/", group, "/run_info/", "run_info.txt", sep = "")
+  }else{
+    tmp.divcontrol[26] <- paste("runInfoFilename = ", BAMMpath, "/", group, "/run_info/", "run_info.txt", sep = "")
   }
   
+  # Replace the default priors with custom priors generated in the previous step
+  #tmp.divcontrol[59] <- paste("expectedNumberOfShifts = ", priors[i, 1], sep = "")
+  tmp.divcontrol[65] <- paste("betaInitPrior = ", priors[i, 1], sep = "")
+  tmp.divcontrol[69] <- paste("betaShiftPrior = ", priors[i, 2], sep = "")
+  #tmp.divcontrol[26] <- paste("muInitPrior = ", priors[i, 4], sep = "")
   
-  ## ASSUMING no measurement error ##
-  aic=numeric(length(models))
-  lnl=numeric(length(models))
-  w.se=numeric(length(models))
-  
-  for(m in 1:length(models)){
-    cat("\n\n\n\n\t*** ", paste(toupper(summaries[m]),": fitting ", sep=""), models[m],
-        " *** \n", sep="")
-    tmp=fitContinuous(phy, trait,SE=0,model=models[m], ncores=2)
-    print(tmp)
-    aic[m]=tmp$opt$aicc
-    lnl[m]=tmp$opt$lnL
-    w.se[m]=tmp$opt$aic
+  # Replace the default path to save the output mcmc_out, event_data, chain_swap files
+  if(file.exists(paste(BAMMpath, "/", group, "/mcmc_output", sep = "")) == FALSE){
+    dir.create(paste(BAMMpath, "/", group, "/mcmc_output", sep = ""))
+    tmp.divcontrol[98] <- paste("mcmcOutfile = ", BAMMpath, "/", group, "/mcmc_output/", "mcmc_out.txt", sep = "")
+  }else{
+    tmp.divcontrol[98] <- paste("mcmcOutfile = ", BAMMpath, "/", group, "/mcmc_output/", "mcmc_out.txt", sep = "")
   }
   
-  ## COMPARE AIC ##
-  names(aic.se)<-names(lnl.se)<-names(aic)<-names(lnl)<-models
-  delta_aic<-function(x) x-x[which(x==min(x))]
+  # Replace the default path to save the output event_data files
+  if(file.exists(paste(BAMMpath, "/", group, "/event_data", sep = "")) == FALSE){
+    dir.create(paste(BAMMpath, "/", group, "/event_data", sep = ""))
+    tmp.divcontrol[105] <- paste("eventDataOutfile = ", BAMMpath, "/", group, "/event_data/", "event_data.txt", sep = "")
+  }else{
+    tmp.divcontrol[105] <- paste("eventDataOutfile = ", BAMMpath, "/", group, "/event_data/", "event_data.txt", sep = "")
+  }
   
-  # no measurement error
-  daic=delta_aic(aic)
-  cat("\n\n\n\t\t\t\t*** MODEL COMPARISON: "," *** \n",sep="")
-  cat("\tdelta-AIC values for models assuming no measurement error
-    \t\t\t\t zero indicates the best model\n\n")
-  print(daic, digits=2)
+  # Set a custom prefix for the output files based on the group names
+  tmp.divcontrol[121] <- paste("outName = ", group, "_Tree_", i,  sep = "")
   
-  # measurement error
-  daic.se=delta_aic(aic.se)
-  cat("\n\n\n\n\t\t\t\t*** MODEL COMPARISON: "," ***\n",sep="")
-  cat("\t\t   delta-AIC values for models estimating SE
-    \t\t\t\t zero indicates the best model\n\n")
-  print(daic.se, digits=2)
-  cat("\n\n\n")
+  # Replace the default path to save the output chain_swap files
+  if(file.exists(paste(BAMMpath, "/", group, "/chain_swap", sep = "")) == FALSE){
+    dir.create(paste(BAMMpath, "/", group, "/chain_swap", sep = ""))
+    tmp.divcontrol[217] <- paste("chainSwapFileName = ", BAMMpath, "/", group, "/chain_swap/", "chain_swap.txt", sep = "")
+  }else{
+    tmp.divcontrol[217] <- paste("chainSwapFileName = ", BAMMpath, "/", group, "/chain_swap/", "chain_swap.txt", sep = "")
+  }
   
-  # wight akaike
-  w=aicw(w.se)
-  cat("\n\n\n\n\t\t\t\t*** MODEL COMPARISON: "," ***\n",sep="")
-  cat("\t\t   w-AIC values for models estimating SE
-    \t\t\t\t zero indicates the best model\n\n")
-  print(w, digits=2)
-  cat("\n\n\n")
+  # Save the custom divcontrol file for the current tree
+  writeLines(tmp.divcontrol, con = paste(BAMMpath, "/", group, "/divcontrol_CUSTOM.txt", sep = ""))
   
-  res_aicc=rbind(aic, aic.se, daic, daic.se, w$w)
-  rownames(res_aicc)=c("AICc","AICc_SE","dAICc", "dAICc_SE", "AICw")
-  #print(w)
-  return(res_aicc)
+  # Generate the command for running the BAMM analysis
+  cmd <- paste(paste(BAMMpath, "/bamm", sep = ""), "-c", paste(BAMMpath, "/", group, "/divcontrol_CUSTOM.txt", sep = ""), sep = " ")
+  
+  # Run the BAMM
+  system(cmd)
+  
 }
 ```
 
-### 0.2. Load data
-
-#### 0.2.1. Trait data
+### 5.0 Check convergence 
 
 ```{r}
-###--- Amphibia
-anura_traits_all <- read.csv2("traits/amphibia/AmphiBIO_v1.csv", h=T, sep=",")
-###--- Squamata
-squamata_traits_all <- as_tibble(read.csv2("traits/squamata/polyBasedData.csv", h=T, sep=","))
-###--- Birds
-birds_traits_all <- read_excel("traits/birds/AVONET_supplementarydataset.xlsx",sheet = "AVONET3_BirdTree")
-###--- Mammals
-mammals_traits_all <- read.csv2("traits/mammals/trait_data_imputed.csv", h=T,sep=',')
+for(i in 1:10){
+  mcmcout <- read.table(
+      paste0("mcmc_output/", group, "_Tree_", i, "_mcmc_out.txt", sep = ""),
+                        sep=',', header=T) 
+  #tail(mcmcout)
+  #plot(mcmcout$logLik ~ mcmcout$generation)
+  burnstart <- floor(0.1 * nrow(mcmcout))
+  postburn <- mcmcout[burnstart:nrow(mcmcout),]
+  print(coda::effectiveSize(postburn$N_shifts))
+  print(coda::effectiveSize(postburn$logLik))
+}
 ```
 
-#### 0.2.2. Phylogenetic data
+### 6.0 Reading multiple event data
+
+6.1. Set how many readings and trait type
 
 ```{r}
-###--- Amphibia
-anura_phy_all <- read.tree("phylogeny/amph_shl_new_Consensus_7238.tre")
-
-###--- Squamata
-squamata_phy_all <- read.tree("phylogeny/squam_shl_new_Consensus_9755.tre")
-squamata_phy_all <-sample(squamata_phy_all,size=1)[[1]]
-
-#squamata_phy_all <- read.tree("phylogeny/squam_shl_new_Posterior_9755.1000.trees") 
-is.ultrametric(squamata_phy_all)
-is.rooted(squamata_phy_all)
-
-###--- Birds
-birds_phy_all <- read.nexus("phylogeny/birds_consensus.tre")
-
-###--- Mammals
-mammals_phy_all <- read.nexus("https://raw.githubusercontent.com/n8upham/MamPhy_v1/master/_DATA/MamPhy_fullPosterior_BDvr_DNAonly_4098sp_topoFree_FBDasZhouEtAl_MCC_v2_target.tre")
-# adjustments in names
-# In mammals, the tree proposed by Upham needs some nomenclature adjustments to proceed with the analysis.
-mammals.upham.drop <- drop.tip(mammals_phy_all, "_Anolis_carolinensis") #remove Anolis
-sp_names_full <- mammals.upham.drop$tip.label
-split_names <- sapply(strsplit(sp_names_full, split='_'), function(x) (c(x[1], x[2])))
-split_names_t <- data.frame(t(split_names))
-new_names <- paste(split_names_t$X1, split_names_t$X2, sep="_")
-
-# check if it is correct
-data.frame(original=mammals.upham.drop$tip.label[1:10], fixed=new_names[1:10])
-mammals.upham.drop$tip.label <- new_names
-mammals_phy_all <- mammals.upham.drop #4175 tips
+trait <- "body"
+n_arvores <- 10
+lista_dfs <- list()
 ```
 
-#### 0.2.3. Species list data
+6.2. Run event data read
 
 ```{r}
-###--- Amphibia
-anura_list_af <- read.table("shapefiles_ranges/species_list/composition_amphibia.txt", h=T)
-
-###--- Squamata
-squamata_list_af <- read.table("shapefiles_ranges/species_list/composition_reptiles.txt", h=T)
-#adjustments in col nomenclature
-names(squamata_list_af) <- gsub(".", "_", fixed=T, names(squamata_list_af))
-squamata_list_af <- squamata_list_af[,-206] # hemidactylus_mabouia, sp exotica
-
-###--- Birds
-birds_list_af <- read.table("shapefiles_ranges/species_list/composition_birds.txt", h=T)
-#adjustments in col nomenclature
-names(birds_list_af) <- gsub(".", "_", fixed=T, names(birds_list_af))
-
-###--- Mammals
-mammals_list_af <- read.table("shapefiles_ranges/species_list/composition_mammals.txt", h=T)
-#adjustments in col nomenclature
-#Trocando . por _
-names(mammals_list_af) <- gsub(".", "_", fixed=T, names(mammals_list_af))
-#Colocando em ordem alfabética
-mammals_list_af <- mammals_list_af[ , order(names(mammals_list_af))]
-#Mudando na composição
-names(mammals_list_af) <- gsub("Lycalopex", "Pseudalopex", fixed=T, names(mammals_list_af)) 
-
+for (i in 1:n_arvores) {
+  # load tree
+  arvore <- read.tree(paste0(group, "_Tree_", i, ".tre"))
+  
+  # load event data
+  edata <- getEventData(
+    arvore,
+    type = "trait",
+    eventdata = paste0("event_data/", group , "_Tree_", i, "_event_data.txt"),
+    burnin = 0.2
+  )
+  
+  # extract median
+  median_rates <- getTipRates(edata, statistic = 'median')$betabeta.avg
+  
+  # dataframe with median rates
+  lista_dfs[[i]] <- data.frame(
+    specie = names(median_rates),
+    median_rate = median_rates,
+    stringsAsFactors = FALSE
+  )
+  names(lista_dfs[[i]])[2] <- paste0("median_tree_", i)
+  save(lista_dfs, file = paste0(trait, "rate_evolution.RData"))
+}
 ```
 
-### 1.0. Obtain last common ancestor of tetrapods of Atlantic Forest
-
-#### 1.1.1. Amphibia
+6.3. Obtain event data result
 
 ```{r}
-# Match species list with phylogeny
-amphibia_phy <- prune.sample(anura_list_af, anura_phy_all)
-amphibia_phy$tip.label
-#plot(amphibia_phy, type= "fan", show.tip.label = FALSE)
-
-# find ancestor 
-anc_anura <- findMRCA(anura_phy_all, c(amphibia_phy$tip.label), type="node")
-anc_anura
-
-tipnode1 <- which(anura_phy_all$tip.label == "Pipa_carvalhoi")
-tipnode2 <- which(anura_phy_all$tip.label == "Ameerega_flavopicta")
-
-getMRCA(anura_phy_all, tip =  c(tipnode1, tipnode2))
-
-# Plot phylogeny
-#plot(anura_phy_all, type= "fan", show.tip.label = FALSE)
-#nodelabels(node=anc_anura,frame="circle",pch=21,cex=1.5,bg="blue")
-#legend("topleft","common ancestor of\nAtlantic forest frogs",
-#       pch=21,pt.cex=1.5,pt.bg="blue",cex=0.7,bty="n")
-
-###
-tree_subset(anura_phy_all, node=anc_anura)
-```
-
-#### 1.1.2. Squamata
-
-```{r}
-# Match species list with phylogeny
-squamata_phy <- prune.sample(squamata_list_af, teste)
-#plot(amphibia_phy, type= "fan", show.tip.label = FALSE)
-squamata_phy$tip.label
-# find ancestor 
-anc_squa <- findMRCA(squamata_phy_all, c(squamata_phy$tip.label))
-anc_squa
-
-tipnode1 <- which(squamata_phy_all$tip.label =="Coleodactylus_brachystoma")
-tipnode2 <- which(squamata_phy_all$tip.label == "Coleodactylus_elizae")
-getMRCA(squamata_phy_all, tip =  c(tipnode1, tipnode2))
-plot(squamata_phy)
-# Plot phylogeny
-#plot(squamata_phy_all, type= "fan", show.tip.label = FALSE)
-#nodelabels(node=anc_squa,frame="circle",pch=21,cex=1.5,bg="blue")
-#legend("topleft","common ancestor of\nAtlantic forest frogs",
-#       pch=21,pt.cex=1.5,pt.bg="blue",cex=0.7,bty="n")
-
-###
-tree_subset(squamata_phy_all, node=9778)
-```
-
-#### 1.1.3. Birds
-
-```{r}
-# Match species list with phylogeny
-birds_phy <- prune.sample(birds_list_af, birds_phy_all )
-birds_phy$tip.label
-#plot(amphibia_phy, type= "fan", show.tip.label = FALSE)
-
-# find ancestor 
-anc_birds <- findMRCA(birds_phy_all, c(birds_phy$tip.label), type="node")
-anc_birds
-
-# Plot phylogeny
-#plot(birds_phy_all, type= "fan", show.tip.label = FALSE)
-#nodelabels(node=anc_birds,frame="circle",pch=21,cex=1.5,bg="blue")
-#legend("topleft","common ancestor of\nAtlantic forest birds",
-#       pch=21,pt.cex=1.5,pt.bg="blue",cex=0.7,bty="n")
-
-###
-tree_subset(birds_phy_all, node=anc_birds)
-```
-
-#### 1.1.4. Mammals
-
-```{r}
-# Match species list with phylogeny
-mammals_phy <- prune.sample(mammals_list_af, mammals_phy_all)
-mammals_phy
-#plot(amphibia_phy, type= "fan", show.tip.label = FALSE)
-
-# find ancestor 
-anc_mammals <- findMRCA(mammals_phy_all, c(mammals_phy$tip.label), type="node")
-anc_mammals
-
-# Plot phylogeny
-plot(mammals_phy_all, type= "fan", show.tip.label = FALSE)
-nodelabels(node=anc_mammals,frame="circle",pch=21,cex=1.5,bg="blue")
-legend("topleft","common ancestor of\nAtlantic forest birds",
-       pch=21,pt.cex=1.5,pt.bg="blue",cex=0.7,bty="n")
-
-###
-tree_subset(mammals_phy_all, node=anc_mammals)
-```
-
-### 2.0 Match phylogeny with traits
-
-#### 2.1. All species with imputed data (Fully dataset)
-
-Here we will use only the harmonized data, i.e. all species with imputed body size values and all species present in the phylogeny. Here we will leave only the data ready for imputation and the tree.
-
-##### 2.1.1. Amphibia
-
-```{r}
-#vis_miss(anura_traits_all[,25:26]) # 22.86% without body size data
-#nrow(anura_traits_all) # 6776
-# TODO ainda precisa conferir mais nomenclaturas
-anura_traits_select <- as_tibble(anura_traits_all) %>% 
-  select("Species", "Body_size_mm") %>%
-  mutate(Species = str_replace_all(Species, " ", "_")) %>%
-  mutate(Species = str_replace_all(Species, "Lithobates", "Rana")) %>%
-  mutate(Species = str_replace_all(Species, "Agalychnis_aspera", "Hylomantis_aspera")) %>%
-  mutate(Species = str_replace_all(Species, "Agalychnis_granulosa", "Hylomantis_granulosa")) %>%
-  mutate(Species = str_replace_all(Species, "Ranitomeya_claudiae", "Andinobates_claudiae")) %>%
-  mutate(Species = str_replace_all(Species, "Flectonotus", "Fritziana"))
-
-View(anura_traits_all)
-
-cat(paste(nrow(anura_traits_select), "espécies estão presentes na base de traits e", lengths(anura_phy_all[4]), "presentes na filogenia.")) 
-
-# species in colnames for prune.sample
-amp_community <- anura_traits_select %>% spread(Species, as.numeric(Body_size_mm))
-anura_traits_phy <- prune.sample(amp_community, anura_phy_all)
-
-# TODO melhorar os prints e colocar em inglês
-cat(paste(nrow(anura_traits_select)-lengths(anura_traits_phy[4]), "espécies da base de traits não tiveram suas posições encontradas na filogenia. A filogenia prune sample ficou com", lengths(anura_traits_phy[4]), "espécies. Perdendo um total de", lengths(anura_phy_all[4])-lengths(anura_traits_phy[4]), "espécies da filogenia original" ))
-```
-
-```{r, echo=False}
-# Now, I removed the species presents on the traits, but not in the species tree
-#match.phylo.comm( anura_phy_all,anura_traits_select) 
-# remove species 
-names_phy <- as.data.frame(anura_traits_phy$tip.label)
-names(names_phy) = "Species"
-
-# join with names present in phylogeny
-anura_traits_with_phylogeny <- left_join(names_phy, anura_traits_select, by = "Species")
-vis_miss(anura_traits_with_phylogeny) # 21.7% missing data
-
-# if TRUE, the dataset is done:
-lengths(anura_traits_phy[4]) == nrow(anura_traits_with_phylogeny) # 6453 spp with missing data
-```
-
-##### 2.1.2. Squamata
-
-```{r}
-squamata_traits_select <- as_tibble(squamata_traits_all) %>%
-  mutate(BodyMass = ifelse(is.na(BodyMass) | BodyMass == "", NA, BodyMass)) %>% 
-  select(Comb_sciname, BodyMass) %>% 
-  mutate(Comb_sciname = str_replace_all(Comb_sciname, " ", "_"))
-
-#vis_miss(squamata_traits_select) # 6.53% without body mass data
-#nrow(squamata_traits_select) # 10531
-
-cat(paste(nrow(squamata_traits_select), "espécies estão presentes na base de traits e", lengths(squamata_phy_all[4]), "presentes na filogenia.")) 
-
-# species in colnames for prune.sample
-squa_community <- squamata_traits_select %>% spread(Comb_sciname, as.numeric(BodyMass))
-squamata_traits_phy <- prune.sample(squa_community, squamata_phy_all) # 9487
-
-# TODO melhorar os prints e colocar em inglês
-cat(paste(nrow(squamata_traits_select)-lengths(squamata_traits_phy[4]), "espécies da base de traits não tiveram suas posições encontradas na filogenia. A filogenia prune sample ficou com", lengths(squamata_traits_phy[4]), "espécies. Perdendo um total de", lengths(squamata_phy_all[4])-lengths(squamata_traits_phy[4]), "espécies da filogenia original" ))
-```
-
-```{r, echo=False}
-# Now, I removed the species presents on the traits, but not in the species tree
-match.phylo.comm(squamata_phy_all,squa_community) 
-
-# remove species 
-names_phy <- as.data.frame(squamata_traits_phy$tip.label)
-names(names_phy) = "Comb_sciname"
-
-# join with names present in phylogeny
-squamata_traits_with_phylogeny <- left_join(names_phy, squamata_traits_select, by = "Comb_sciname")
-#View(squamata_traits_with_phylogeny)
-# if TRUE, the dataset is done:
-lengths(squamata_traits_phy[4]) == nrow(squamata_traits_with_phylogeny) # 6453 spp with missing data
-```
-
-##### 2.1.3. Birds
-
-```{r}
-birds_traits_all$Species3
-
-birds_traits_select <- as_tibble(birds_traits_all) %>%
-  select(Species3, Mass) %>% 
-  mutate(Species3 = str_replace_all(Species3, " ", "_"))
-
-vis_miss(birds_traits_select) # 0 % without body mass data
-#nrow(squamata_traits_select) # 10531
-
-cat(paste(nrow(birds_traits_select), "espécies estão presentes na base de traits e", lengths(birds_phy_all[5]), "presentes na filogenia.")) 
-
-# species in colnames for prune.sample
-birds_community <- birds_traits_select %>% spread(Species3, as.numeric(Mass))
-birds_traits_phy <- prune.sample(birds_community, birds_phy_all) # 9993
-
-# TODO melhorar os prints e colocar em inglês
-cat(paste(nrow(birds_traits_select)-lengths(birds_traits_phy[5]), "espécies da base de traits não tiveram suas posições encontradas na filogenia. A filogenia prune sample ficou com", lengths(birds_traits_phy[5]), "espécies. Perdendo um total de", lengths(birds_phy_all[5])-lengths(birds_traits_phy[5]), "espécies da filogenia original" ))
-```
-
-```{r, echo=False}
-# Now, I removed the species presents on the traits, but not in the species tree
-#match.phylo.comm(squamata_phy_all,squa_community) 
-
-# remove species 
-#names_phy <- as.data.frame(squamata_traits_phy$tip.label)
-#names(names_phy) = "Comb_sciname"
-
-# join with names present in phylogeny
-#squamata_traits_with_phylogeny <- left_join(names_phy, squamata_traits_select, by = "Comb_sciname")
-#View(squamata_traits_with_phylogeny)
-# if TRUE, the dataset is done:
-lengths(birds_traits_phy[5]) == nrow(birds_traits_select) # 9993 spp without missing data
-```
-
-##### 2.1.4. Mammals
-
-```{r}
-mammals_traits_select <- as_tibble(mammals_traits_all) %>%
-  select(iucn2020_binomial, adult_mass_g) %>% 
-  mutate(iucn2020_binomial = str_replace_all(iucn2020_binomial, " ", "_")) %>%
-  rename(Species = iucn2020_binomial, Mass = adult_mass_g) %>%
-  distinct(Species, .keep_all = TRUE) # retirando duplicatas de spp.
-
-#vis_miss(mammals_traits_select) # 3.64% without body mass data
-#nrow(squamata_traits_select) # 3853
-
-cat(paste(nrow(mammals_traits_select), "espécies estão presentes na base de traits e", lengths(mammals_phy_all[4]), "presentes na filogenia.")) 
-
-# species in colnames for prune.sample
-mammals_community <- mammals_traits_select %>% spread(Species, as.numeric(Mass))
-
-mammals_traits_phy <- prune.sample(mammals_community, mammals_phy_all) # 3853
-
-# TODO melhorar os prints e colocar em inglês
-cat(paste(nrow(mammals_traits_select)-lengths(mammals_traits_phy[4]), "espécies da base de traits não tiveram suas posições encontradas na filogenia. A filogenia prune sample ficou com", lengths(mammals_traits_phy[4]), "espécies. Perdendo um total de", lengths(mammals_phy_all[4])-lengths(mammals_traits_phy[4]), "espécies da filogenia original" ))
-```
-
-```{r, echo=False}
-# Now, I removed the species presents on the traits, but not in the species tree
-#match.phylo.comm(mammals_traits_phy,mammals_community) 
-
-# remove species 
-names_phy <- as.data.frame(mammals_traits_phy$tip.label)
-names(names_phy) = "Species"
-
-# join with names present in phylogeny
-mammals_traits_with_phylogeny <- left_join(names_phy, mammals_traits_select, by = "Species")
-
-# if TRUE, the dataset is done:
-lengths(mammals_traits_phy[4]) == nrow(mammals_traits_with_phylogeny) # 3853 spp with missing data
-```
-
-#### 2.2. Only species with traits (Harmonized dataset)
-
-Only species that already had body size/mass data, that is, data that we will not impute for comparative purposes. Note: Only Amphibia and mammals needs comparative purposes.
-
-##### 2.2.1. Amphibia
-
-```{r}
-anura_traits_with_phylogeny # conjunto de dados que com NA's que não foram encontrados na filogenia
-anura_traits_with_phylogeny_without_na <- remove_missing(anura_traits_with_phylogeny)  # removed 1400 spp.
-
-# species in colnames for prune.sample
-amp_community_phy <- anura_traits_with_phylogeny_without_na %>%
-  spread(Species, as.numeric(Body_size_mm))
-ncol(amp_community_phy)
-
-anura_traits_phy_without_na <- prune.sample(amp_community_phy, anura_phy_all)
-anura_traits_phy_without_na
-
-# if TRUE, the dataset is done:
-lengths(anura_traits_phy_without_na[4]) == nrow(anura_traits_with_phylogeny_without_na) 
-# 5053 spp without missing data
-```
-
-##### 2.2.2. Squamata
-
-```{r}
-squamata_traits_with_phylogeny # conjunto de dados que com NA's que não foram encontrados na filogenia
-teste = remove_missing(squamata_traits_with_phylogeny)  # all 9487 spp. are completed
-
-# species in colnames for prune.sample
-#amp_community_phy <- anura_traits_with_phylogeny_without_na %>%
-#  spread(Species, as.numeric(Body_size_mm))
-#ncol(amp_community_phy)
-
-#anura_traits_phy_without_na <- prune.sample(amp_community_phy, anura_phy_all)
-#anura_traits_phy_without_na
-
-# if TRUE, the dataset is done:
-lengths(squamata_traits_phy[4]) == nrow(teste) 
-# 9487 spp without missing data
-```
-
-##### 2.2.3. Birds
-
-```{r}
-birds_traits_select # conjunto de dados sem NA's
-birds_traits_phy # prune sample ok
-```
-
-##### 2.2.4. Mammals
-
-```{r}
-mammals_traits_with_phylogeny # conjunto de dados que com NA's que não foram encontrados na filogenia
-mammals_traits_with_phylogeny_without_na <- remove_missing(mammals_traits_with_phylogeny)  # removed 92 species
-
-# species in colnames for prune.sample
-mammals_community_phy <- mammals_traits_with_phylogeny_without_na %>%
-  spread(Species, as.numeric(Mass))
-#ncol(amp_community_phy)
-
-mammals_traits_phy_without_na <- prune.sample(mammals_community_phy, mammals_phy_all)
-#anura_traits_phy_without_na
-
-# if TRUE, the dataset is done:
-lengths(mammals_traits_phy_without_na[4]) == nrow(mammals_traits_with_phylogeny_without_na) 
-# 3771 spp without missing data
-```
-
-### 3.0. Input traits
-
-Herein, we used species dataset (phy + traits) without missing data for calculing evolution model\
-
-#### 3.1. Select best fit evolution model
-
-##### 3.1.1. Amphibia
-
-```{r}
-# Preparing the data
-anura_traits_with_phylogeny_without_na
-size_amph <- log10(as.numeric(anura_traits_with_phylogeny_without_na$Body_size_mm))
-names(size_amph) <- anura_traits_with_phylogeny_without_na$Species
-
-# The Phylogeny needs to rooted and ultrametric
-anura_phy_ultra <- force.ultrametric(anura_traits_phy_without_na)
-amphibia_phy_rooted <- ape::multi2di(anura_phy_ultra)
-
-# Body models
-?geiger
-body_anura_model <- fitContinuous(amphibia_phy_rooted, size_amph)
-fit_modified(amphibia_phy_rooted, size_amph)
-
-#-- RESULTS -------------------------------------------------#
-#                     BM          OU             EB    white #
-#AICc      -3.567217e+03 -4048.12351  -3.565172e+03 2339.573 #
-#AICc_SE   -5.050405e+03 -5048.40172  -3.563169e+03 2341.576 #
-#dAICc      4.809062e+02     0.00000   4.829516e+02 6387.697 #
-#dAICc_SE   0.000000e+00     2.00317   1.487236e+03 7391.981 #
-#AICw      3.732827e-105     1.00000  1.343967e-105    0.000 #
-#------------------------------------------------------------#
-```
-
-##### 3.1.2. Mammals
-
-```{r}
-mammals_traits_with_phylogeny_without_na
-mass_mammals <- log10(as.numeric(mammals_traits_with_phylogeny_without_na$Mass))
-names(mass_mammals) <- mammals_traits_with_phylogeny_without_na$Species
-
-# The Phylogeny needs to rooted and ultrametric
-mammals_phy_ultra <- force.ultrametric(mammals_traits_phy_without_na)
-mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
-
-# Body models
-#body_mammals_model <- fitContinuous(mammals_phy_rooted, mass_mammals)
-#body_mammals_model
-fit_modified(mammals_phy_rooted, mass_mammals)# white model
-
-#-- RESULTS -----------------------------------------------#
-#             BM          OU            EB          white  #
-# AICc     2.019353e+03 1992.7948011 2.021359e+03 12707.90 #
-# AICc_SE  2.021356e+03 1539.3586198 2.023364e+03 12709.90 #
-# dAICc    2.655825e+01    0.0000000 2.856466e+01 10715.10 #
-# dAICc_SE 4.819976e+02    0.0000000 4.840051e+02 11170.54 #
-# AICw     1.707090e-06    0.9999977 6.269930e-07     0.00 #
-#----------------------------------------------------------#
-```
-
-#### 3.2. Trait Imputation
-
-##### 3.2.1. Amphibia
-
-```{r}
-# The Phylogeny needs to rooted and ultrametric
-anura_phy_ultra <- force.ultrametric(anura_traits_phy)
-amphibia_phy_rooted <- ape::multi2di(anura_phy_ultra)
-
-anura_traits_input <- anura_traits_with_phylogeny %>% rename(species = Species) 
-anura_traits_input$Body_size_mm <- log10(as.numeric(anura_traits_input$Body_size_mm))
-
-p_OU <- phylopars(trait_data = anura_traits_input, tree = amphibia_phy_rooted,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
-
-#p_OU$anc_recon[1:20,] # Data with imputed species means
-#p_OU$anc_var[1:20,] # Variances for each estimate
-
-input_traits_amp <- p_OU$anc_recon[1:6453,]
-input_traits_amp <- data.frame(body_size_log = input_traits_amp)
-input_traits_amp <- new_data_frame <- data.frame(
-  species = rownames(input_traits_amp),
-  body_size_log = input_traits_amp$body_size_log)
-```
-
-##### 3.2.2. Mammals
-
-```{r}
-# The Phylogeny needs to rooted and ultrametric
-mammals_phy_ultra <- force.ultrametric(mammals_traits_phy)
-mammals_phy_rooted <- ape::multi2di(mammals_phy_ultra)
-
-mammals_traits_input <- mammals_traits_with_phylogeny %>% rename(species = Species) 
-mammals_traits_input$Mass <- log10(as.numeric(mammals_traits_input$Mass))
-
-p_OU_mammals <- phylopars(trait_data = mammals_traits_input, tree = mammals_phy_rooted,  pheno_error = TRUE,phylo_correlated = TRUE,pheno_correlated = TRUE, model="mvOU")
-
-#p_OU$anc_recon[1:20,] # Data with imputed species means
-#p_OU$anc_var[1:20,] # Variances for each estimate
-input_traits_mammals <- p_OU_mammals$anc_recon[1:3853,]
-
-#input_traits_mammals <- as.data.frame(input_traits_mammals) %>%
-  #rename(body_mass_log = input_traits_mammals)
-input_traits_mammals <- data.frame(body_mass_log = input_traits_mammals)
-
-input_traits_mammals <- new_data_frame <- data.frame(
-  species = rownames(input_traits_mammals),
-  body_mass_log = input_traits_mammals$body_mass_log)
-
-```
-
-### 4.0. Save dataset
-
-```{r}
-# Fully dataset
-# with all species and with imputed data for mammals and amphibians
-# amphibia
-is.ultrametric(amphibia_phy_rooted) # TRUE
-write.tree(amphibia_phy_rooted, "02_metrics/full_data/amphibia_fully.new") 
-
-write.table(input_traits_amp, "02_metrics/BAMM/amphibia/amphibia_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
-
-#--- Squamata
-# tree
-is.ultrametric(squamata_traits_phy) # FALSE
-# transform to fix error script
-squamata_phy_ultra <- force.ultrametric(squamata_traits_phy)
-squamata_phy_rooted <- ape::multi2di(squamata_phy_ultra)
-write.tree(squamata_phy_rooted, "02_metrics/full_data/squamata_fully.new") 
-
-# traits
-write.table(squamata_traits_with_phylogeny, "02_metrics/BAMM/squamata/squamata_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
-
-#--- Birds
-# tree
-is.ultrametric(birds_traits_phy) # FALSE
-# transform to fix error script
-birds_phy_ultra <- force.ultrametric(birds_traits_phy)
-birds_phy_rooted <- ape::multi2di(birds_phy_ultra)
-write.tree(birds_phy_rooted, "02_metrics/full_data/birds_fully.new") 
-
-# traits
-write.table(birds_traits_select, "02_metrics/BAMM/birds/birds_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
-
-#--- Mammals
-# tree complete
-is.ultrametric(mammals_phy_rooted) # TRUE
-is.rooted(mammals_phy_rooted) # TRUE
-write.tree(mammals_phy_rooted, "02_metrics/full_data/mammals_fully.new") 
-
-# traits
-write.table(input_traits_mammals, "02_metrics/BAMM/mammals/mammals_traits_fully.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
-#---
-```
-
-```{r}
-# Harmonized dataset
-# With excluded species with NA's in body size/body mass
-#--- Amphibia
-# tree
-anura_phy_ultra_without_na <- force.ultrametric(anura_traits_phy_without_na)
-anura_phy_rooted_without_na <- ape::multi2di(anura_phy_ultra_without_na)
-write.tree(anura_phy_rooted_without_na, "02_metrics/harmonized_data/amphibia_harm.new") 
-# traits to BAMM folder
-write.table(anura_traits_with_phylogeny_without_na, "02_metrics/BAMM/amphibia_harm/amphibia_traits_harm.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
-#--- Mammals
-# tree
-mammals_phy_ultra_without_na <- force.ultrametric(mammals_traits_phy_without_na)
-mammals_phy_rooted_without_na <- ape::multi2di(mammals_phy_ultra_without_na)
-write.tree(mammals_phy_rooted_without_na, "02_metrics/harmonized_data/mammals_harm.new") 
-# traits to BAMM folder
-write.table(mammals_traits_with_phylogeny_without_na, "02_metrics/BAMM/mammals_harm/mammals_traits_harm.txt",quote = FALSE, col.names = FALSE,row.names = FALSE) 
+load(paste0(trait, "rate_evolution.RData")) 
+
+rate_final <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  )
 ```
