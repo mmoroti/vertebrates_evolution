@@ -11,3 +11,12 @@ acer-branch
 *02_metrics/full_data/vccorlib120.dll
 *02_metrics/climate_data
 *02_metrics/shapefiles
+
+/BAMM
+/References
+/chainSwapPercent.R
+/fit_modified.r
+
+*phylogeny/amph_shl_new_Posterior_7238.1000.trees
+*phylogeny/birds_hackett_allspecies.nex
+*/mammals_birth_death_tip-dated-completed-trees.nex

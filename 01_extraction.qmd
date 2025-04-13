@@ -173,12 +173,16 @@ divcontrol <- readLines(file.path("BAMM", group, "/", paste0("controlfile_", gro
 
 ### 4.0. Run BAMM analysis
 
+4.1. Set your output directory and change local directory
+
 ```{r}
 # Local directory output
 BAMMpath <- "D:/repos/vertebrates_evolution/BAMM"
 # Access the folder of group
 setwd(file.path("BAMM", group))
 ```
+
+4.2. Trait evolution rate
 
 ```{r}
 for(i in 1:length(sampled_trees)){
