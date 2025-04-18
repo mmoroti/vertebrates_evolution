@@ -29,9 +29,15 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
     "..", "wallacean_time", "Shapefiles", "TetrapodTraits_community"),
     layer='gridcells_110km'
 )
+
+grid_marine <- sf::st_read(dsn = file.path(
+    "shapefile"),
+    layer='grid_marine_bioclimate'
+)
 ```
 
 ##### 1.2. Climate data
+
 ```{r}
 climate_assemblages <- data.table::fread("02_metrics/SpatialData_110km.csv",
                                       stringsAsFactors=T) 
@@ -85,7 +91,7 @@ all_species <- bind_rows(amphibia_trait,
 
 ### 2. Data processing
 
-##### 2.1. Obtain assemblage community 
+##### 2.1. Obtain assemblage community
 
 ```{r}
 vert_assemblages_edit <- vert_assemblages %>%
@@ -127,12 +133,37 @@ vert_assemblages_matrix_filter <- vert_assemblages_matrix %>%
 ##### 2.2. Extract climate variables to grids
 
 ```{r}
+grid_marine_variables <- grid_marine %>%
+    select("Cl_I110", "X_meanmean", "X_rangemean", 
+           "X_maxmean","X_minmean","geometry") %>%
+    st_drop_geometry()
+
+head(vert_assemblages_matrix_filter[1,1])
+# Species list in both datasets
+sea_communities <- inner_join(vert_assemblages_matrix_filter[,1],
+                           grid_marine_variables,
+                           by = c("Cell_Id110" = "Cl_I110")) # 31671 
+visdat::vis_miss(sea_communities)
+nrow(grid_marine_variables)
+nrow(sea_communities)
+
+# Species without distribution data
+anti_join(vert_assemblages_matrix_filter[,1],
+                           grid_marine_variables,
+                           by = c("Cell_Id110" = "Cl_I110"))
+
+vert_assemblages_matrix_filter %>%
+ filter(Cell_Id110 %in% sea_communities$Cell_Id110)
+
+
 grids <- vert_assemblages_matrix_filter %>%
  pull("Cell_Id110")
 # Only grids with vertebrates
 grid_cells_sf_select <- grid_cells_sf %>%
   filter(Cl_I110 %in% grids)
 ```
+
+Terrestrial habitat
 
 ```{r}
 valores_bio01 <- extract(Bio01, grid_cells_sf_select, fun = median, na.rm = TRUE)
@@ -156,6 +187,8 @@ names(valores_bio01)[2] <- "Bio01_median"
 climate_variables <- bind_cols(valores_bio04, valores_bio05, valores_bio06,
  valores_bio12, valores_bio15, valores_bio16, valores_bio17)
 ```
+
+Marine habitat
 
 ### 3. Niche metrics
 
