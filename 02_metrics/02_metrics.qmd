@@ -29,38 +29,54 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
     "..", "wallacean_time", "Shapefiles", "TetrapodTraits_community"),
     layer='gridcells_110km'
 )
-
-grid_marine <- sf::st_read(dsn = file.path(
-    "shapefile"),
-    layer='grid_marine_bioclimate'
-)
 ```
 
 ##### 1.2. Climate data
 
 ```{r}
-climate_assemblages <- data.table::fread("02_metrics/SpatialData_110km.csv",
-                                      stringsAsFactors=T) 
+#climate_assemblages <- data.table::fread("02_metrics/SpatialData_110km.csv",
+#                                      stringsAsFactors=T) 
+grid_marine <- sf::st_read(dsn = file.path(
+    "shapefile"),
+    layer='grid_marine_bioclimate'
+)
+
+sea_temp <- grid_marine %>%
+ select(Cl_I110, X_meanmean,X_rangemean,X_maxmean,X_minmean) %>%
+ st_drop_geometry()
+
+grid_terrestrial <- sf::st_read(dsn = file.path(
+    "shapefile"),
+    layer='grid_terrestrial_chelsa'
+)
+
+terrestrial_temp <- grid_terrestrial %>%
+ select(Cl_I110, X_bio15_mea, X_bio16_mea, 
+        X_bio17_mea, X_bio01_mea, X_bio04_mea,
+        X_bio05_mea, X_bio06_mea, X_bio12_mea) %>%
+ st_drop_geometry() %>%
+ group_by(Cl_I110) %>%
+ summarise(across(everything(), mean))
 ```
 
 ```{r}
 # Climate data from CHELSA
 # annual mean temperature
-Bio01 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio1_1981-2010_V.2.1.tif") 
+#Bio01 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio1_1981-2010_V.2.1.tif") 
 # temperature seasonality
-Bio04 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio4_1981-2010_V.2.1.tif") 
+#Bio04 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio4_1981-2010_V.2.1.tif") 
 # maximum temperature of the warmest month
-Bio05 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio5_1981-2010_V.2.1.tif") 
+#Bio05 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio5_1981-2010_V.2.1.tif") 
 # minimum temperature of the coldest month
-Bio06 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio6_1981-2010_V.2.1.tif") 
+#Bio06 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio6_1981-2010_V.2.1.tif") 
 # annual precipitation
-Bio12 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio12_1981-2010_V.2.1.tif") 
+#Bio12 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio12_1981-2010_V.2.1.tif") 
 # precipitation seasonality
-Bio15 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio15_1981-2010_V.2.1.tif") 
+#Bio15 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio15_1981-2010_V.2.1.tif") 
 # precipitation of the wettest quarter
-Bio16 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio16_1981-2010_V.2.1.tif") 
+#Bio16 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio16_1981-2010_V.2.1.tif") 
 # precipitation of the driest quarter
-Bio17 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio17_1981-2010_V.2.1.tif") 
+#Bio17 <- rast("https://os.zhdk.cloud.switch.ch/chelsav2/GLOBAL/climatologies/1981-2010/bio/CHELSA_bio17_1981-2010_V.2.1.tif") 
 ```
 
 ##### 1.3. Species list
@@ -86,109 +102,152 @@ all_species <- bind_rows(amphibia_trait,
          aves_trait,
          mammalia_trait) %>%
  rename(Scientific.Name = V1,
-       Body = V2)
+       Body = V2) %>%
+ mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " "))
+```
+
+##### 1.3. TetrapodTraits
+
+```{r}
+TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
+
+# Species list with observed body size/mass
+species <- all_species %>% # 31682
+ mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " ")) %>%
+ pull(Scientific.Name)
+
+TetraDataHabitat <- TetraData %>% 
+  mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " ")) %>%
+  filter(Scientific.Name %in% species) %>% # apenas spp com tamanho do corpo observado
+  select("Scientific.Name","Class", "EcoTer", "EcoFresh", "EcoMar") 
+
+# Ver combinações únicas dos três tipos de habitat
+TetraDataHabitat %>%
+  count(EcoTer, EcoFresh, EcoMar) %>%
+  arrange(desc(n))
+```
+
+##### 1.4. Venn Diagram of Major Habitat em TetrapodTraits
+
+```{r}
+venn_data <- TetraDataHabitat %>%
+  count(EcoTer, EcoFresh, EcoMar) %>%
+  filter(!is.na(EcoTer)) %>%  # remove o caso NA
+  mutate(comb = case_when(
+    EcoTer == 1 & EcoFresh == 0 & EcoMar == 0 ~ "Terrestrial",
+    EcoTer == 1 & EcoFresh == 1 & EcoMar == 0 ~ "Terrestrial&Freshwater",
+    EcoTer == 1 & EcoFresh == 1 & EcoMar == 1 ~ "Terrestrial&Freshwater&Marine",
+    EcoTer == 1 & EcoFresh == 0 & EcoMar == 1 ~ "Terrestrial&Marine",
+    EcoTer == 0 & EcoFresh == 1 & EcoMar == 0 ~ "Freshwater",
+    EcoTer == 0 & EcoFresh == 0 & EcoMar == 1 ~ "Marine",
+    EcoTer == 0 & EcoFresh == 1 & EcoMar == 1 ~ "Freshwater&Marine"
+  )) %>%
+  select(comb, n) %>%
+  deframe()
+
+fit <- euler(venn_data)
+
+plot(fit,
+     fills = c("forestgreen", "deepskyblue", "orange"),
+     labels = list(font = 2),
+     edges = TRUE,
+     quantities = TRUE)
+```
+
+##### 1.4. Obtain species in TetrapodTraits according major habitat and dependence of climate
+
+```{r}
+# exclusivamente em ambientes nao-marinhos
+TetraDataTerrestrial <- TetraDataHabitat %>%
+  filter(EcoMar == 0 & (EcoTer == 1 | EcoFresh == 1)) %>% 
+  pull(Scientific.Name)
+# somente em ambientes marinhos
+TetraDataMarine <- TetraDataHabitat %>%
+    filter(EcoMar == 1 & EcoTer == 0 & EcoFresh == 0) %>% # exclusivamente marinhas
+    pull(Scientific.Name)
+# sujeitas a variaveis marinhas e terrestres
+TetraTransition <- TetraDataHabitat %>%
+    filter(EcoMar == 1 & (EcoTer == 1 | EcoFresh == 1)) %>%
+    pull(Scientific.Name)
 ```
 
 ### 2. Data processing
 
 ##### 2.1. Obtain assemblage community
 
-```{r}
-vert_assemblages_edit <- vert_assemblages %>%
- mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " "))
+Terrestrial
 
-vert_assemblages_matrix <- dcast(
-  data = vert_assemblages_edit,
+```{r}
+# Terrestres
+vert_assemblages_terrestrial <- vert_assemblages %>%
+ filter(Scientific.Name %in% TetraDataTerrestrial) 
+
+# Clima para as comunidades terrestres
+assemblages_terrestrial <- vert_assemblages_terrestrial %>%
+ distinct(Cell_Id110) %>%
+ arrange(Cell_Id110)
+nrow(assemblages_terrestrial) # 15001 grids
+
+# Pegando a media por grid
+assemblages_terrestrial_climate <- left_join(
+    assemblages_terrestrial,
+     terrestrial_temp, 
+     by = c("Cell_Id110" = "Cl_I110"))
+
+# Tirando comunidades com NA
+terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) # 1738 comunidades
+
+# Only grids with climate
+vert_assemblages_terrestrial_edit <- vert_assemblages_terrestrial %>%
+ filter(Cell_Id110 %in% terrestrial_climate$Cell_Id110)
+
+# Obtain presence/ausence matrix
+vert_assemblages_terrestrial_matrix <- dcast(
+  data = vert_assemblages_terrestrial_edit,
   formula = Cell_Id110 ~ Scientific.Name,
   fun.aggregate = function(x) as.integer(length(x) > 0),  # 1 se presença, 0 se ausência
   value.var = "Cell_Id110",
   fill = 0  # Preenche células sem ocorrência com 0
-) 
+) %>%
+ arrange(Cell_Id110) %>%
+ column_to_rownames(var = "Cell_Id110") 
 ```
+
+Marine
 
 ```{r}
-# Species list in assemblages data
-list <- vert_assemblages_edit %>%
-    distinct(Scientific.Name)
+# Marine
+vert_assemblages_marine <- vert_assemblages %>%
+ filter(Scientific.Name %in% TetraDataMarine) 
 
-# Species list with observed body size/mass
-species <- all_species %>% # 31682
- mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " ")) 
+# Clima para as comunidades terrestres
+assemblages_marine <- vert_assemblages_marine %>%
+ distinct(Cell_Id110)
+# clima por grid 
+assemblages_marine_climate <- left_join(
+    assemblages_marine,
+     sea_temp, 
+     by = c("Cell_Id110" = "Cl_I110"))
 
-# Species list in both datasets
-species_list <- inner_join(list,
-                           species,
-                           by = "Scientific.Name") # 31671 species
-# Species without distribution data
-anti_join(species,list, by = "Scientific.Name") 
+# removing grids without climate 
+marine_climate <- remove_missing(assemblages_marine_climate) %>% # 867 grids with NA
+    arrange(Cell_Id110) 
+
+# Only grids with climate
+vert_assemblages_marine_edit <- vert_assemblages_marine %>%
+ filter(Cell_Id110 %in% marine_climate$Cell_Id110)
+
+# Obtain presence/ausence matrix
+vert_assemblages_marine_matrix <- dcast(
+  data = vert_assemblages_marine_edit,
+  formula = Cell_Id110 ~ Scientific.Name,
+  fun.aggregate = function(x) as.integer(length(x) > 0),  # 1 se presença, 0 se ausência
+  value.var = "Cell_Id110",
+  fill = 0  # Preenche células sem ocorrência com 0
+) %>%
+ arrange(Cell_Id110) %>%
+ column_to_rownames(var = "Cell_Id110")
 ```
-
-```{r}
-cols <- c("Cell_Id110", species_list$Scientific.Name)
-
-vert_assemblages_matrix_filter <- vert_assemblages_matrix %>%
- dplyr::select(all_of(cols)) # 31671 species + cell_id110
-```
-
-##### 2.2. Extract climate variables to grids
-
-```{r}
-grid_marine_variables <- grid_marine %>%
-    select("Cl_I110", "X_meanmean", "X_rangemean", 
-           "X_maxmean","X_minmean","geometry") %>%
-    st_drop_geometry()
-
-head(vert_assemblages_matrix_filter[1,1])
-# Species list in both datasets
-sea_communities <- inner_join(vert_assemblages_matrix_filter[,1],
-                           grid_marine_variables,
-                           by = c("Cell_Id110" = "Cl_I110")) # 31671 
-visdat::vis_miss(sea_communities)
-nrow(grid_marine_variables)
-nrow(sea_communities)
-
-# Species without distribution data
-anti_join(vert_assemblages_matrix_filter[,1],
-                           grid_marine_variables,
-                           by = c("Cell_Id110" = "Cl_I110"))
-
-vert_assemblages_matrix_filter %>%
- filter(Cell_Id110 %in% sea_communities$Cell_Id110)
-
-
-grids <- vert_assemblages_matrix_filter %>%
- pull("Cell_Id110")
-# Only grids with vertebrates
-grid_cells_sf_select <- grid_cells_sf %>%
-  filter(Cl_I110 %in% grids)
-```
-
-Terrestrial habitat
-
-```{r}
-valores_bio01 <- extract(Bio01, grid_cells_sf_select, fun = median, na.rm = TRUE)
-#valores_bio04 <- extract(Bio04, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio05 <- extract(Bio05, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio06 <- extract(Bio06, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio12 <- extract(Bio12, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio15 <- extract(Bio15, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio16 <- extract(Bio16, grid_cells_sf, fun = median, na.rm = TRUE)
-#valores_bio17 <- extract(Bio17, grid_cells_sf, fun = median, na.rm = TRUE)
-# rename
-names(valores_bio01)[2] <- "Bio01_median"
-#names(valores_bio04)[2] <- "Bio04_median"
-#names(valores_bio05)[2] <- "Bio05_median"
-#names(valores_bio06)[2] <- "Bio06_median"
-#names(valores_bio12)[2] <- "Bio12_median"
-#names(valores_bio15)[2] <- "Bio15_median"
-#names(valores_bio16)[2] <- "Bio16_median"
-#names(valores_bio17)[2] <- "Bio17_median"
-
-climate_variables <- bind_cols(valores_bio04, valores_bio05, valores_bio06,
- valores_bio12, valores_bio15, valores_bio16, valores_bio17)
-```
-
-Marine habitat
 
 ### 3. Niche metrics
 
@@ -215,112 +274,27 @@ data_present_select <- usdm::exclude(data_present,v2) # VIF < 3
 ##### 3.2. Outlying Mean Indexes (OMI)
 
 ```{r}
-# climate data
-#climate_past_trans <- decostand(climate_past, "standardize")
-dudi_past <- dudi.pca(climate_past, scale = TRUE, center = TRUE, scan = FALSE)
+# Terrestrial
+dudi_terrestre <- dudi.pca(terrestrial_climate[,-1], scale = TRUE, scan = FALSE, nf = 3)
+niche_terrestrial <- niche(dudi_terrestre, vert_assemblages_terrestrial_matrix, scann = FALSE) 
+plot(nic_terrestrial)
 
-# niche species
-nic_amphibia_past <- niche(dudi_past, amphibia_composition, scann = FALSE)
-nic_squamata_past <- niche(dudi_past, squamata_composition, scann = FALSE)
-nic_birds_past <- niche(dudi_past, birds_composition, scann = FALSE)
-nic_mammals_past <- niche(dudi_past, mammals_composition, scann = FALSE)
+# Marine
+dudi_marine <- dudi.pca(marine_climate[,-1], scale = TRUE, scan = FALSE, nf = 3)
+niche_marine <- niche(dudi_marine, vert_assemblages_marine_matrix, scann = FALSE) 
+plot(niche_marine)
 
 # to dataframe
-niche_amphibia_traits_past <- as.data.frame(niche.param(nic_amphibia_past))
-niche_squamata_traits_past <- as.data.frame(niche.param(nic_squamata_past))
-niche_birds_traits_past <- as.data.frame(niche.param(nic_birds_past))
-niche_mammals_traits_past <- as.data.frame(niche.param(nic_mammals_past))
+niche_terrestrial_df <- as.data.frame(niche.param(niche_terrestrial))
+niche_marine_df <- as.data.frame(niche.param(niche_marine))
 ```
 
 ### 4. Save data
 
 ```{r}
-
-# Salvar o OMI e o Tol na pasta traits
-
-
-# join past and present niche climate for tetrapods
-# niche position
-climate_niche_amphibia <- inner_join(temp_median_anura, temp_median_anura_present, by="Species")
-climate_niche_squamata <- inner_join(temp_median_squamata, temp_median_squamata_present, by="Species")
-climate_niche_birds <- inner_join(temp_median_birds, temp_median_birds_present, by="Species")
-climate_niche_mammals <- inner_join(temp_median_mammals, temp_median_mammals_present, by="Species")
-
-# save dataset
-write.table(climate_niche_amphibia, "climate_data/climate_niche_amphibia.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(climate_niche_squamata, "climate_data/climate_niche_squamata.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(climate_niche_birds, "climate_data/climate_niche_birds.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(climate_niche_mammals, "climate_data/climate_niche_mammals.txt", 
-            sep=",", quote=FALSE, row.names = F)
-
-
-###
-# load dataset
-# past
-climate_niche_range_amphibia_past <- read.table("climate_data/climate_niche_range_amphibia_past.txt",
-                                                header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_squamata_past <- read.table("climate_data/climate_niche_range_squamata_past.txt",
-                                           header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_birds_past <- read.table("climate_data/climate_niche_range_birds_past.txt",
-                                        header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_mammals_past <- read.table("climate_data/climate_niche_range_mammals_past.txt",
-                                          header=TRUE, sep=",", row.names=NULL)
-# present data
-climate_niche_range_amphibia <- read.table("climate_data/climate_niche_range_amphibia.txt",
-                                           header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_squamata <- read.table("climate_data/climate_niche_range_squamata.txt",
-                                           header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_birds <- read.table("climate_data/climate_niche_range_birds.txt",
-                                        header=TRUE, sep=",", row.names=NULL)
-climate_niche_range_mammals <- read.table("climate_data/climate_niche_range_mammals.txt",
-                                          header=TRUE, sep=",", row.names=NULL)
-
-# niche range lets add var (max - min)
-range_niche_amphibia <- inner_join(climate_niche_range_amphibia_past,
-                                   climate_niche_range_amphibia,
-                                   by="Species")
-range_niche_squamata <- inner_join(climate_niche_range_squamata_past,
-                                   climate_niche_range_squamata,
-                                   by="Species")
-range_niche_birds <- inner_join(climate_niche_range_birds_past,
-                                climate_niche_range_birds,
-                                by="Species")
-range_niche_mammals <- inner_join(climate_niche_range_mammals_past,
-                                  climate_niche_range_mammals, 
-                                  by="Species")                                          
-
-# save niche breadth
-write.table(range_niche_amphibia, "climate_data/niche_range_amphibia_letsaddvar.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(range_niche_squamata, "climate_data/niche_range_squamata_letsaddvar.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(range_niche_birds, "climate_data/niche_range_birds_letsaddvar.txt", 
-            sep=",", quote=FALSE, row.names = F)
-write.table(range_niche_mammals, "climate_data/niche_range_mammals_letsaddvar.txt", 
-            sep=",", quote=FALSE, row.names = F)
-
-# save dataset OMI
-# present
-write.table(niche_amphibia_traits, "climate_data/niche_omi_amphibia.txt", 
+# Salvar o OMI e o Tol
+write.table(niche_terrestrial_df, "02_metrics/omi_data/niche_terrestrial_df.txt", 
             sep=",", quote=FALSE, row.names = T)
-write.table(niche_squamata_traits, "climate_data/niche_omi_squamata.txt", 
+write.table(niche_marine_df, "02_metrics/omi_data/niche_marine_df.txt", 
             sep=",", quote=FALSE, row.names = T)
-write.table(niche_birds_traits, "climate_data/niche_omi_birds.txt", 
-            sep=",", quote=FALSE, row.names = T)
-write.table(niche_mammals_traits, "climate_data/niche_omi_mammals.txt", 
-            sep=",", quote=FALSE, row.names = T)
-
-# past
-write.table(niche_amphibia_traits_past, "climate_data/niche_omi_amphibia_past.txt", 
-            sep=",", quote=FALSE, row.names = T)
-write.table(niche_squamata_traits_past, "climate_data/niche_omi_squamata_past.txt", 
-            sep=",", quote=FALSE, row.names = T)
-write.table(niche_birds_traits_past, "climate_data/niche_omi_birds_past.txt", 
-            sep=",", quote=FALSE, row.names = T)
-write.table(niche_mammals_traits_past, "climate_data/niche_omi_mammals_past.txt", 
-            sep=",", quote=FALSE, row.names = T)
-
 ```
