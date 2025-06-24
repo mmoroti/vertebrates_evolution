@@ -231,7 +231,7 @@ mammals_phy <- picante::prune.sample(mammals_community,
 
 
 ### 3. PGLS
-#### 3.1. Transform variables
+#### 3.1. Amphibia
 ```{r}
 # binarizando as probabilidades de >0.5 para 1, e < para 0
 df_trait_amphibia_bin <- df_trait_amphibia %>%
@@ -266,7 +266,6 @@ trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
                              normalize_variables)
 ```
 
-#### 3.2. Amphibia
 ```{r}
 model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol +
                            Arb + Fos + Ter + Aqu,
@@ -288,91 +287,175 @@ save(model_niche_amphibia,
 frogs_diagnosis <- plot(model_niche_amphibia)
 ```
 
-#### 2.2. Squamata
+#### 3.2. Squamata
 ```{r}
-# Join  data
-squamata_dataset_past <- squamata_dataset_past %>% rename(OMI_past = OMI, Tol_past = Tol)
-squamata_dataset_full <- left_join(squamata_dataset, squamata_dataset_past[,1:3], by = 'Species')
-
-# dataset normalizado
-squamata_dataset_full_normalizado <- decostand(squamata_dataset_full[,2:6], "normalize")
-squamata_dataset_full_normalizado <- cbind(Species = squamata_dataset_full[,1],squamata_dataset_full_normalizado)
-
-# pgls models
-squamata_phy_pgls_u <- force.ultrametric(squamata_phy_pgls)
-
-model_squamata_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=squamata_dataset_full , 
-                       correlation = corPagel(1,squamata_phy_pgls_u, form = ~Species))
-
-#model_squamata_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
-#                                      data=squamata_dataset_full_normalizado, 
-#                                      correlation = corPagel(1,squamata_phy_pgls, form = ~Species))
-
-summary(model_squamata_svl)
-R2(model_squamata_svl_normalizado)
-squamata_diagnosis <- plot(model_squamata_svl)
-#summary(model_squamata_svl_normalizado)
-qqnorm(resid(model_squamata_svl))
-qqline(resid(model_squamata_svl))
+# binarizando as probabilidades de >0.5 para 1, e < para 0
+df_trait_reptilia_bin <- df_trait_reptilia %>%
+  mutate(across(
+    .cols = c(Fos, Arb, Aqu, Ter),
+    .fns  = ~ as.integer(.x > 0.5)
+  ))
 ```
 
-#### 2.3. Birds
 ```{r}
-# Join  data
-birds_dataset_past <- birds_dataset_past %>% rename(OMI_past = OMI, Tol_past = Tol)
-birds_dataset_full <- left_join(birds_dataset, birds_dataset_past[,1:3], by = 'Species')
+# Os modelos melhoram ao transformar as variaveis
+trait_reptilia_log <- df_trait_reptilia_bin %>%
+  mutate(
+    taxa_fenotipica = log(taxa_fenotipica),
+    OMI    = log(OMI),
+    Tol    = log(Tol+1),
+    #taxa_tol   = log(taxa_tol),
+    #taxa_omi = log(taxa_omi),
+    Aqu    = as.integer(Aqu),
+    Ter   = as.integer(Ter),
+    Arb     = as.integer(Arb),
+    Fos     = as.integer(Fos))
 
-# dataset normalizado
-birds_dataset_full_normalizado <- decostand(birds_dataset_full[,2:6], "normalize")
-birds_dataset_full_normalizado <- cbind(Species = birds_dataset_full[,1],birds_dataset_full_normalizado)
-
-# pgls models
-is.ultrametric(birds_phy_pgls)
-birds_phy_pgls_u <- force.ultrametric(birds_phy_pgls)
-
-model_birds_svl <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=birds_dataset_full, 
-                       correlation = corPagel(1,birds_phy_pgls_u, form = ~Species))
-
-summary(model_birds_svl)
-R2(model_birds_svl)
-
-birds_diagnosis <- plot(model_birds_svl_normalizado)
-
-model_birds_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, 
- data=birds_dataset_full_normalizado, correlation = corPagel(1,birds_phy_pgls, form = ~Species))
-plot(model_birds_svl_normalizado)
-# summary(model_birds_svl_normalizado)
-
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_reptilia_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_reptilia_normalize <- cbind(trait_reptilia_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
 ```
 
-#### 2.4. Mammals
 ```{r}
-# Join  data
-mammals_dataset_past <- mammals_dataset_past %>% rename(OMI_past = OMI, Tol_past = Tol)
-mammals_dataset_full <- left_join(mammals_dataset, mammals_dataset_past[,1:3], by = 'Species')
+model_niche_reptilia <- gls(taxa_fenotipica ~ OMI + Tol +
+                           Arb + Fos + Ter + Aqu,
+                         data = trait_reptilia_normalize,
+                    correlation = corPagel(1,reptilia_phy,
+                                           form = ~Scientific.Name))
 
-# dataset normalizado
-mammals_dataset_full_normalizado <- decostand(mammals_dataset_full[,2:6], "normalize")
-mammals_dataset_full_normalizado <- cbind(Species = mammals_dataset_full[,1],mammals_dataset_full_normalizado)
+plot(resid(model_niche_reptilia) ~ fitted(model_niche_reptilia))
+qqnorm(resid(model_niche_reptilia))
+qqline(resid(model_niche_reptilia))
 
-# pgls models
-model_mammals_svl <- gls((trait_rate*1000) ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full, 
-                       correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
+summary(model_niche_reptilia)
 
-model_mammals_svl_normalizado <- gls(trait_rate ~ OMI + Tol + OMI_past + Tol_past, data=mammals_dataset_full_normalizado, 
-                       correlation = corPagel(1,mammals_phy_pgls, form = ~Species))
+R2(model_niche_reptilia)
 
-mammals_diagnosis <- plot(model_mammals_svl)
+save(model_niche_reptilia,
+     file = "03_analysis/model_niche_reptilia.RData")
 
-summary(model_mammals_svl)
-R2(model_mammals_svl)
-
-summary(model_mammals_svl_normalizado)
+reptilia_diagnosis <- plot(model_niche_reptilia)
 ```
 
+#### 3.3. Birds
+```{r}
+# binarizando as probabilidades de >0.5 para 1, e < para 0
+df_trait_birds_bin <- df_trait_birds %>%
+  mutate(across(
+    .cols = c(Fos, Arb, Aqu, Ter), # TODO CHECAR
+    .fns  = ~ as.integer(.x > 0.5)
+  ))
+```
 
-### 3.0 PWR
+```{r}
+# Os modelos melhoram ao transformar as variaveis
+trait_birds_log <- df_trait_birds_bin %>%
+  mutate(
+    taxa_fenotipica = log(taxa_fenotipica),
+    OMI    = log(OMI),
+    Tol    = log(Tol+1),
+    #taxa_tol   = log(taxa_tol),
+    #taxa_omi = log(taxa_omi),
+    Aqu    = as.integer(Aqu),
+    Ter   = as.integer(Ter),
+    Arb     = as.integer(Arb),
+    Fos     = as.integer(Fos))
 
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_birds_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_birds_normalize <- cbind(trait_birds_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
+```
+
+```{r}
+model_niche_birds <- gls(taxa_fenotipica ~ OMI + Tol +
+                           Arb + Fos + Ter + Aqu,
+                         data = trait_birds_normalize,
+                    correlation = corPagel(1,reptilia_phy,
+                                           form = ~Scientific.Name))
+
+plot(resid(model_niche_birds) ~ fitted(model_niche_birds))
+qqnorm(resid(model_niche_birds))
+qqline(resid(model_niche_birds))
+
+summary(model_niche_birds)
+
+R2(model_niche_birds)
+
+save(model_niche_birds,
+     file = "03_analysis/model_niche_birds.RData")
+
+birds_diagnosis <- plot(model_niche_birds)
+```
+
+#### 3.4. Mammals
+```{r}
+# binarizando as probabilidades de >0.5 para 1, e < para 0
+df_trait_mammals_bin <- df_trait_mammals %>%
+  mutate(across(
+    .cols = c(Fos, Arb, Aqu, Ter), # TODO CHECAR
+    .fns  = ~ as.integer(.x > 0.5)
+  ))
+```
+
+```{r}
+# Os modelos melhoram ao transformar as variaveis
+trait_mammals_log <- df_trait_mammals_bin %>%
+  mutate(
+    taxa_fenotipica = log(taxa_fenotipica),
+    OMI    = log(OMI),
+    Tol    = log(Tol+1),
+    #taxa_tol   = log(taxa_tol),
+    #taxa_omi = log(taxa_omi),
+    Aqu    = as.integer(Aqu),
+    Ter   = as.integer(Ter),
+    Arb     = as.integer(Arb),
+    Fos     = as.integer(Fos))
+
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_mammals_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_mammals_normalize <- cbind(trait_mammals_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
+```
+
+```{r}
+model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol +
+                           Arb + Fos + Ter + Aqu,
+                         data = trait_mammals_normalize,
+                    correlation = corPagel(1,mammals_phy,
+                                           form = ~Scientific.Name))
+
+plot(resid(model_niche_mammals) ~ fitted(model_niche_mammals))
+qqnorm(resid(model_niche_mammals))
+qqline(resid(model_niche_mammals))
+
+summary(model_niche_mammals)
+
+R2(model_niche_mammals)
+
+save(model_niche_mammals,
+     file = "03_analysis/model_niche_mammals.RData")
+
+mammals_diagnosis <- plot(model_niche_mammals)
+```
+
+### 4.0 PWR
 ```{r}
 library(pez)
 library(phylobase)
@@ -439,10 +522,13 @@ bandw#0.06224979
 
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
 ```
+### 5.0. Plots
+#### 5.1. Plot PCA Climatic niche
+```{r}
 
-### 4.0. Plots
+```
 
-#### 4.1. Model plots
+#### 5.2. Model plots
 
 ```{r}
 models <- list(Frogs = model_anura_svl,
@@ -522,7 +608,7 @@ modelplot(model_anura_svl_normalizado, coef_omit = 'Interc')
 modelplot(model_mammals_svl_normalizado, coef_omit = 'Interc')
 ```
 
-#### 4.2. Phylogenetic plots
+#### 5.3. Phylogeny plots
 
 ```{r}
 # Frogs

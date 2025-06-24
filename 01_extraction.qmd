@@ -20,6 +20,7 @@ library(BAMMtools) # BAMM package
 ### 0.1. Load data
 
 #### 0.1. Trait data
+
 ```{r}
 group <- "Amphibia"
 #group <- "Reptilia"
@@ -27,37 +28,44 @@ group <- "Amphibia"
 #group <- "Mammalia"
 ```
 
-Phenotipic trait
+```{r}
+trait <- "BodyMass_g"
+```
+
+Phenotype trait
+
 ```{r}
 TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
 
 group_trait <- TetraData %>%
   filter(Class == group) %>%
   filter(ImputedLength == 0) %>%
-  select(Scientific.Name, BodyLength_mm) %>%
-  
-  mutate(BodyLength_mm = log(BodyLength_mm))
+  select(Scientific.Name, all_of(trait)) %>%
+  mutate(across(all_of(trait), log))
 
 group_community <- group_trait %>%
-  pivot_wider(names_from = Scientific.Name, values_from = type)
+  pivot_wider(names_from = Scientific.Name, values_from = trait)
 ```
 
 Climatic niche
+
 ```{r}
 amphibia_niche <- data.table::fread(
-  file.path("02_metrics", "omi_data", paste0("niche_", group, "_terrestrial.txt") )
+  file.path("02_metrics", "omi_data", 
+            paste0("niche_", group, "_terrestrial.txt"))
 ) %>% rename(Scientific.Name = V1) 
 
 group_trait <- amphibia_niche %>%
-  select(Scientific.Name, Tol) %>%
+  select(Scientific.Name, OMI) %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
-  mutate(Tol = log(Tol+1)) 
+  mutate(OMI = log(OMI)) 
 
 group_community <- group_trait %>%
-  pivot_wider(names_from = Scientific.Name, values_from = Tol)
+  pivot_wider(names_from = Scientific.Name, values_from = OMI)
 ```
 
 #### 0.2. Phylogenetic data
+
 ```{r}
 tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
@@ -126,14 +134,15 @@ especies_comuns <- intersect(
 group_trait_filter <- group_trait %>%
   filter(Scientific.Name %in% especies_comuns)
 
-breadth_niche <- as.numeric(group_trait_filter$Tol) # change trait if needed
-names(breadth_niche) <- group_trait_filter$Scientific.Name
+position_niche <- as.numeric(group_trait_filter$OMI) # change trait if needed
+names(position_niche) <- group_trait_filter$Scientific.Name
 ```
 
 1.3. Save trait file
 ```{r}
-write.table(breadth_niche, 
-            file = file.path("BAMM", group, "/", paste0(group,"_niche_breadth.txt")),
+write.table(position_niche, 
+            file = file.path("BAMM", group, "/", 
+                             paste0(group,"_niche_position.txt")),
             quote = FALSE, 
             #sep = "\t",  
             col.names = FALSE,
@@ -152,7 +161,7 @@ priors_list <- lapply(seq_along(sampled_trees), function(i) {
   
   bamm_priors <- setBAMMpriors(
     phy = sampled_trees[[i]],
-    traits = breadth_niche,
+    traits = position_niche,
     outfile = NULL
   )
   
@@ -171,7 +180,7 @@ priors <- do.call(rbind, priors_list)
 generateControlFile(file = file.path("BAMM", group, "/", paste0("controlfile_", group, ".txt")),
                     type = 'trait', params = list(
                       treefile = 'tree.new',
-                      traitfile= paste0(group, "_niche_breadth.txt"),
+                      traitfile= paste0(group, "_niche_position.txt"),
                       numberOfGenerations = '350000000',
                       overwrite = '1',
                       #betaShiftPrior = as.numeric(priors['betaShiftPrior']),
@@ -277,9 +286,7 @@ for(i in 1:10){
 ```
 
 ### 6.0 Reading multiple event data
-
 6.1. Set how many readings and trait type
-
 ```{r}
 trait <- "body"
 n_arvores <- 10
@@ -287,7 +294,6 @@ lista_dfs <- list()
 ```
 
 6.2. Run event data read
-
 ```{r}
 for (i in 1:n_arvores) {
   # load tree
@@ -316,7 +322,6 @@ for (i in 1:n_arvores) {
 ```
 
 6.3. Obtain event data result
-
 ```{r}
 load(paste0(trait, "rate_evolution.RData")) 
 
