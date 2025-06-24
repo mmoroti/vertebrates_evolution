@@ -34,29 +34,14 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
 ##### 1.2. Climate data
 
 ```{r}
-# Marine ecosystem
-grid_marine <- sf::st_read(dsn = file.path(
-    "shapefile"),
-    layer='grid_marine_bioclimate'
-)
+grid_climate <- read_csv(
+  "../shapefile/climate_variables_grid.csv"
+) %>%
+  select(-Long, -Lat, -WWF_Rlm, -PrpLndA) %>%
+  rename(bio1_mean = mean_bio1mean,
+         bio4_mean = '_bio4mean')
 
-sea_temp <- grid_marine %>%
- select(Cl_I110, X_meanmean,X_rangemean,X_maxmean,X_minmean) %>%
- st_drop_geometry()
-
-# Terrestrial ecosystem 
-grid_terrestrial <- sf::st_read(dsn = file.path(
-    "..", "shapefile"),
-    layer='grid_terrestrial_chelsa'
-)
-
-terrestrial_temp <- grid_terrestrial %>%
- select(Cl_I110, X_bio15_mea, X_bio16_mea, 
-        X_bio17_mea, X_bio01_mea, X_bio04_mea,
-        X_bio05_mea, X_bio06_mea, X_bio12_mea) %>%
- st_drop_geometry() %>%
- group_by(Cl_I110) %>%
- summarise(across(everything(), mean))
+any(duplicated(grid_climate$Cl_I110))
 ```
 
 ##### 1.3. Species list
@@ -175,17 +160,17 @@ mammalia_list_terrestrial <- TetraDataTerrestrial %>%
 
 # TODO em desenvolvimento
 # somente em ambientes marinhos
-TetraDataMarine <- TetraDataHabitat %>%
-    filter(EcoMar == 1 & EcoTer == 0 & EcoFresh == 0) #%>% # exclusivamente marinhas
-    #pull(Scientific.Name)
-table(TetraDataMarine$Class)
+#TetraDataMarine <- TetraDataHabitat %>%
+#    filter(EcoMar == 1 & EcoTer == 0 & EcoFresh == 0) #%>% # exclusivamente marinhas
+#    #pull(Scientific.Name)
+#table(TetraDataMarine$Class)
 
 # sujeitas a variaveis marinhas e terrestres
-TetraTransition <- TetraDataHabitat %>%
-    filter(EcoMar == 1 & (EcoTer == 1 | EcoFresh == 1)) #%>%
+#TetraTransition <- TetraDataHabitat %>%
+#    filter(EcoMar == 1 & (EcoTer == 1 | EcoFresh == 1)) #%>%
     #pull(Scientific.Name)
-table(TetraTransition$Class)
-View(TetraTransition)
+#table(TetraTransition$Class)
+#View(TetraTransition)
 ```
 
 ### 2. Data processing
@@ -214,11 +199,10 @@ nrow(assemblages_terrestrial_amphibia) # 11353 cells
 # com os dados bioclimaticos extraidos
 amp_assemblages_terrestrial_climate <- left_join(
     assemblages_terrestrial_amphibia,
-     terrestrial_temp, 
+     grid_climate, 
      by = c("Cell_Id110" = "Cl_I110"))
 
 # Tirando grids com NA (nao permitido pela analise de ordenacao OMI)
-# 60 grids sem dados
 amp_terrestrial_climate <- remove_missing(amp_assemblages_terrestrial_climate) 
 
 # Grids apontadas para a ocorrencia da especie
@@ -237,8 +221,9 @@ amphibia_assemblages_terrestrial_matrix <- dcast(
  arrange(Cell_Id110) %>%
  column_to_rownames(var = "Cell_Id110") 
 
-ncol(amphibia_assemblages_terrestrial_matrix) # 7080 spp
-nrow(amphibia_assemblages_terrestrial_matrix) # 11293 grids cells
+ncol(amphibia_assemblages_terrestrial_matrix) # 7082 spp
+nrow(amphibia_assemblages_terrestrial_matrix) # 11353 grids cells
+nrow(amp_terrestrial_climate) # 11353 grids cells
 ```
 
 ###### Reptilia
@@ -263,17 +248,19 @@ nrow(assemblages_terrestrial_reptilia) # 11885 cells
 # com os dados bioclimaticos extraidos
 assemblages_terrestrial_climate <- left_join(
     assemblages_terrestrial_reptilia,
-     terrestrial_temp, 
+     grid_climate, 
      by = c("Cell_Id110" = "Cl_I110"))
+nrow(assemblages_terrestrial_climate)
 
 # Tirando grids com NA (nao permitido pela analise de ordenacao OMI)
-# TODO 489 grids removidas
-terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
+rep_terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
+nrow(rep_terrestrial_climate) # 11885
 
 # Grids apontadas para a ocorrencia da especie
 # Mas sem dados climaticos serao removidas
 reptilia_assemblages_terrestrial <- vert_assemblages_reptilia %>%
- filter(Cell_Id110 %in% terrestrial_climate$Cell_Id110)
+ filter(Cell_Id110 %in% rep_terrestrial_climate$Cell_Id110)
+nrow(reptilia_assemblages_terrestrial)
 
 # Obtain presence/ausence matrix
 reptilia_assemblages_terrestrial_matrix <- dcast(
@@ -286,8 +273,9 @@ reptilia_assemblages_terrestrial_matrix <- dcast(
  arrange(Cell_Id110) %>%
  column_to_rownames(var = "Cell_Id110") 
 
-ncol(reptilia_assemblages_terrestrial_matrix) # 9556 spp.
-nrow(reptilia_assemblages_terrestrial_matrix) # 11396 grids cells
+ncol(reptilia_assemblages_terrestrial_matrix) # 9635 spp.
+nrow(reptilia_assemblages_terrestrial_matrix) # 11885 grids
+nrow(rep_terrestrial_climate) # 11885 grids cells
 ```
 
 ###### Aves
@@ -312,17 +300,16 @@ nrow(assemblages_terrestrial_aves) # 14687 cells
 # com os dados bioclimaticos extraidos
 assemblages_terrestrial_climate <- left_join(
     assemblages_terrestrial_aves,
-     terrestrial_temp, 
+     grid_climate, 
      by = c("Cell_Id110" = "Cl_I110"))
 
 # Tirando grids com NA (nao permitido pela analise de ordenacao OMI)
-# TODO 1540 grids removidas
-terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
+birds_terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
 
 # Grids apontadas para a ocorrencia da especie
 # Mas sem dados climaticos serao removidas
 aves_assemblages_terrestrial <- vert_assemblages_aves %>%
- filter(Cell_Id110 %in% terrestrial_climate$Cell_Id110)
+ filter(Cell_Id110 %in% birds_terrestrial_climate$Cell_Id110)
 
 # Obtain presence/ausence matrix
 aves_assemblages_terrestrial_matrix <- dcast(
@@ -335,8 +322,9 @@ aves_assemblages_terrestrial_matrix <- dcast(
  arrange(Cell_Id110) %>%
  column_to_rownames(var = "Cell_Id110") 
 
-ncol(aves_assemblages_terrestrial_matrix) # 8600 spp.
-nrow(aves_assemblages_terrestrial_matrix) # 13147 grids cells
+ncol(aves_assemblages_terrestrial_matrix) # 8632 spp.
+nrow(aves_assemblages_terrestrial_matrix) # 14687 grids cells
+nrow(birds_terrestrial_climate) # # 14687 grids cells
 ```
 
 ###### Mammalia
@@ -361,17 +349,16 @@ nrow(assemblages_terrestrial_mammalia) # 13631 cells
 # com os dados bioclimaticos extraidos
 assemblages_terrestrial_climate <- left_join(
     assemblages_terrestrial_mammalia,
-     terrestrial_temp, 
+     grid_climate, 
      by = c("Cell_Id110" = "Cl_I110"))
 
 # Tirando grids com NA (nao permitido pela analise de ordenacao OMI)
-# TODO 480 grids removidas
-terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
+mammals_terrestrial_climate <- remove_missing(assemblages_terrestrial_climate) 
 
 # Grids apontadas para a ocorrencia da especie
 # Mas sem dados climaticos serao removidas
 mammalia_assemblages_terrestrial <- vert_assemblages_mammalia %>%
- filter(Cell_Id110 %in% terrestrial_climate$Cell_Id110)
+ filter(Cell_Id110 %in% mammals_terrestrial_climate$Cell_Id110)
 
 # Obtain presence/ausence matrix
 mammalia_assemblages_terrestrial_matrix <- dcast(
@@ -384,8 +371,9 @@ mammalia_assemblages_terrestrial_matrix <- dcast(
  arrange(Cell_Id110) %>%
  column_to_rownames(var = "Cell_Id110") 
 
-ncol(mammalia_assemblages_terrestrial_matrix) # 5191 spp.
-nrow(mammalia_assemblages_terrestrial_matrix) # 13151 grids cells
+ncol(mammalia_assemblages_terrestrial_matrix) # 5198 spp.
+nrow(mammalia_assemblages_terrestrial_matrix) # 13631 grids cells
+nrow(mammals_terrestrial_climate) # 13631 grids cells
 ```
 
 ### 3. Niche metrics
@@ -393,58 +381,142 @@ nrow(mammalia_assemblages_terrestrial_matrix) # 13151 grids cells
 ##### 3.1. VIF climate variables
 
 ```{r}
-# VIF > 10
-vif_amp <- usdm::vifstep(amp_terrestrial_climate[,-1], th=10) # identify collinear variables that should be excluded
+# identify collinear variables that should be excluded VIF > 10
+
+# Amphibia
+vif_amp <- usdm::vifstep(amp_terrestrial_climate[,-1], th=10) 
 terrestrial_climate_amp <- usdm::exclude(
   amp_terrestrial_climate[,-1],
   vif_amp) 
+
+# Reptilia
+vif_rep <- usdm::vifstep(rep_terrestrial_climate[,-1], th=10) 
+terrestrial_climate_rep <- usdm::exclude(
+  rep_terrestrial_climate[,-1],
+  vif_rep)
+
+# Birds
+vif_birds <- usdm::vifstep(birds_terrestrial_climate[,-1], th=10) 
+terrestrial_climate_birds <- usdm::exclude(
+  birds_terrestrial_climate[,-1],
+  vif_birds)
+
+# Mammals
+vif_mammals <- usdm::vifstep(mammals_terrestrial_climate[,-1], th=10) 
+terrestrial_climate_mammals <- usdm::exclude(
+  mammals_terrestrial_climate[,-1],
+  vif_mammals)
 ```
 
 ##### 3.2. Outlying Mean Indexes (OMI)
 
 ```{r}
 # Amphibia
-dudi_amphibia_terrestre <- dudi.pca(amp_terrestrial_climate[,-1],
+dudi_amphibia_terrestre <- dudi.pca(terrestrial_climate_amp,
                            scale = TRUE,
                            scan = FALSE)
 niche_amphibia_terrestrial <- niche(dudi_amphibia_terrestre,
                            amphibia_assemblages_terrestrial_matrix,
                            scann = FALSE) 
-niche_amphibia_terrestrial_df <- as.data.frame(niche.param(niche_terrestrial))
+niche_amphibia_terrestrial_df <- as.data.frame(
+  niche.param(niche_amphibia_terrestrial))
 
 # Reptilia
-dudi_amphibia_terrestre <- dudi.pca(amp_terrestrial_climate[,-1],
+dudi_reptilia_terrestre <- dudi.pca(terrestrial_climate_rep,
                            scale = TRUE,
                            scan = FALSE)
-niche_amphibia_terrestrial <- niche(dudi_amphibia_terrestre,
-                           amphibia_assemblages_terrestrial_matrix,
-                           scann = FALSE) 
-niche_amphibia_terrestrial_df <- as.data.frame(niche.param(niche_terrestrial))
+niche_reptilia_terrestrial <- niche(dudi_reptilia_terrestre,
+                           reptilia_assemblages_terrestrial_matrix,
+                           scann = FALSE)
+niche_reptilia_terrestrial_df <- as.data.frame(
+  niche.param(niche_reptilia_terrestrial))
 
 # Aves
-dudi_amphibia_terrestre <- dudi.pca(amp_terrestrial_climate[,-1],
+dudi_birds_terrestre <- dudi.pca(terrestrial_climate_birds,
                            scale = TRUE,
                            scan = FALSE)
-niche_amphibia_terrestrial <- niche(dudi_amphibia_terrestre,
-                           amphibia_assemblages_terrestrial_matrix,
+niche_birds_terrestrial <- niche(dudi_birds_terrestre,
+                           aves_assemblages_terrestrial_matrix,
                            scann = FALSE) 
-niche_amphibia_terrestrial_df <- as.data.frame(niche.param(niche_terrestrial))
+niche_birds_terrestrial_df <- as.data.frame(
+  niche.param(niche_birds_terrestrial))
 
 # Mammalia
-dudi_amphibia_terrestre <- dudi.pca(amp_terrestrial_climate[,-1],
+dudi_mammals_terrestre <- dudi.pca(terrestrial_climate_mammals,
                            scale = TRUE,
                            scan = FALSE)
-niche_amphibia_terrestrial <- niche(dudi_amphibia_terrestre,
-                           amphibia_assemblages_terrestrial_matrix,
+
+niche_mammals_terrestrial <- niche(dudi_mammals_terrestre,
+                           mammalia_assemblages_terrestrial_matrix,
                            scann = FALSE) 
-niche_amphibia_terrestrial_df <- as.data.frame(niche.param(niche_terrestrial))
+niche_mammals_terrestrial_df <- as.data.frame(
+  niche.param(niche_mammals_terrestrial))
+```
+
+```{r}
+# PCA results
+summary(dudi_amphibia_terrestre)
+summary(dudi_reptilia_terrestre)
+summary(dudi_birds_terrestre)
+summary(dudi_mammals_terrestre)
+
+# Zero count
+sum(niche_amphibia_terrestrial_df$Tol == 0, na.rm = TRUE) # 1806
+sum(niche_reptilia_terrestrial_df$Tol == 0, na.rm = TRUE) # 1396
+sum(niche_birds_terrestrial_df$Tol == 0, na.rm = TRUE) # 145
+sum(niche_mammals_terrestrial_df$Tol == 0, na.rm = TRUE) # 285
+
+# Adicionando a constante aos valores de Tol para remover os zeros
+options(scipen = 999)
+View(niche_amphibia_terrestrial_df)
+min(niche_amphibia_terrestrial_df$Tol)
+max(niche_amphibia_terrestrial_df$Tol)
+hist(log(niche_amphibia_terrestrial_df$Tol))
+
+# Descobre o menor valor positivo
+min_pos <- min(niche_amphibia_terrestrial_df$Tol[niche_amphibia_terrestrial_df$Tol > 0])
+# Define a constante proporcional ao menor valor positivo
+constante <- min_pos * 0.1
+# Adiciona a constante a todos os valores
+niche_amphibia_terrestrial_df$Tol_adj <- niche_amphibia_terrestrial_df$Tol + constante
+hist(niche_amphibia_terrestrial_df$Tol_adj)
 ```
 
 ### 4. Save data
 
 ```{r}
+# To BAMM
 # Amphibia
 write.table(niche_amphibia_terrestrial_df,
-            "omi_data/niche_amphibia_terrestrial.txt", 
+            "omi_data/niche_Amphibia_terrestrial.txt", 
             sep=",", quote=FALSE, row.names = T)
+# Reptilia
+write.table(niche_reptilia_terrestrial_df,
+            "omi_data/niche_Reptilia_terrestrial.txt", 
+            sep=",", quote=FALSE, row.names = T)
+# Birds
+write.table(niche_birds_terrestrial_df,
+            "omi_data/niche_Aves_terrestrial.txt", 
+            sep=",", quote=FALSE, row.names = T)
+# Mammals
+write.table(niche_mammals_terrestrial_df,
+            "omi_data/niche_Mammals_terrestrial.txt", 
+            sep=",", quote=FALSE, row.names = T)
+
+# To load in next step (03_analysis)
+save(
+  niche_amphibia_terrestrial_df,
+  niche_reptilia_terrestrial_df,
+  niche_birds_terrestrial_df,
+  niche_mammals_terrestrial_df,
+  file = "omi_data/niche_df.RData"
+)
+# To load in next step (04_plot)
+save(
+  dudi_amphibia_terrestre,
+  dudi_reptilia_terrestre,
+  dudi_birds_terrestre,
+  dudi_mammals_terrestre,
+  file = "omi_data/niche_pca.RData"
+)
 ```
