@@ -6,6 +6,7 @@ editor: visual
 ---
 
 ### 0. Libraries
+
 ```{r}
 library(vegan) # normalize dataset
 library(picante) # prune sample with phy
@@ -19,7 +20,9 @@ library(rr2) # r2 pgls
 ```
 
 ### 1. Load data
-#### 1.1. TetrapodTraits 
+
+#### 1.1. TetrapodTraits
+
 ```{r}
 TetraData <- data.table::fread("../traits/TetrapodTraits_1.0.0.csv") %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
@@ -27,6 +30,7 @@ TetraData <- data.table::fread("../traits/TetrapodTraits_1.0.0.csv") %>%
 ```
 
 #### 1.2. Climate niche
+
 ```{r}
 load(file.path(
   "..", "02_metrics", "omi_data", "niche_df.RData"
@@ -34,6 +38,7 @@ load(file.path(
 ```
 
 #### 1.3. Rate trait evolution
+
 ```{r}
 # Amphibia
 load(
@@ -97,6 +102,7 @@ rate_body_mammals <- Reduce(
 ```
 
 #### 1.4. Phylogeny
+
 ```{r}
 amphibia_phy_full <- read.tree(file.path(
   "G:", "Meu Drive", "Artigos", "vertebrates_evolution",
@@ -115,9 +121,10 @@ mammals_phy_full <- read.tree(file.path(
   "Mammalia", "Mammalia_Tree_1.tre"))
 ```
 
-
 ### 2. Join data
+
 #### 2.1. Amphibia
+
 ```{r}
 niche_amphibia_df <- niche_amphibia_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_amphibia_terrestrial_df)) %>%
@@ -126,6 +133,7 @@ niche_amphibia_df <- niche_amphibia_terrestrial_df %>%
 ```
 
 Merge traits
+
 ```{r}
 rate_niche_amphibia <- left_join(niche_amphibia_df,
           rate_body_amphibia,
@@ -136,6 +144,7 @@ df_trait_amphibia <- rate_niche_amphibia %>%
 ```
 
 Phylogeny to PGLS
+
 ```{r}
 amphibia_community <- df_trait_amphibia %>%
   select(Scientific.Name, taxa_fenotipica) %>%
@@ -146,6 +155,7 @@ amphibia_phy <- picante::prune.sample(amphibia_community,
 ```
 
 #### 1.2. Squamata
+
 ```{r}
 niche_reptilia_df <- niche_reptilia_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_reptilia_terrestrial_df)) %>%
@@ -154,6 +164,7 @@ niche_reptilia_df <- niche_reptilia_terrestrial_df %>%
 ```
 
 Merge traits
+
 ```{r}
 rate_niche_reptilia <- left_join(niche_reptilia_df,
           rate_body_reptilia,
@@ -164,6 +175,7 @@ df_trait_reptilia <- rate_niche_reptilia %>%
 ```
 
 Phylogeny to PGLS
+
 ```{r}
 reptilia_community <- df_trait_reptilia %>%
   select(Scientific.Name, taxa_fenotipica) %>%
@@ -174,6 +186,7 @@ reptilia_phy <- picante::prune.sample(reptilia_community,
 ```
 
 #### 1.3. Birds
+
 ```{r}
 niche_birds_df <- niche_birds_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_birds_terrestrial_df)) %>%
@@ -182,6 +195,7 @@ niche_birds_df <- niche_birds_terrestrial_df %>%
 ```
 
 Merge traits
+
 ```{r}
 rate_niche_birds <- left_join(niche_birds_df,
           rate_body_birds,
@@ -192,6 +206,7 @@ df_trait_birds <- rate_niche_birds %>%
 ```
 
 Phylogeny to PGLS
+
 ```{r}
 birds_community <- df_trait_birds %>%
   select(Scientific.Name, taxa_fenotipica) %>%
@@ -202,6 +217,7 @@ birds_phy <- picante::prune.sample(birds_community,
 ```
 
 #### 1.4. Mammals
+
 ```{r}
 niche_mammals_df <- niche_mammals_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_mammals_terrestrial_df)) %>%
@@ -210,6 +226,7 @@ niche_mammals_df <- niche_mammals_terrestrial_df %>%
 ```
 
 Merge traits
+
 ```{r}
 rate_niche_mammals <- left_join(niche_mammals_df,
           rate_body_mammals,
@@ -220,6 +237,7 @@ df_trait_mammals <- rate_niche_mammals %>%
 ```
 
 Phylogeny to PGLS
+
 ```{r}
 mammals_community <- df_trait_mammals %>%
   select(Scientific.Name, taxa_fenotipica) %>%
@@ -229,10 +247,12 @@ mammals_phy <- picante::prune.sample(mammals_community,
                               mammals_phy_full)
 ```
 
-
 ### 3. PGLS
+
 #### 3.1. Amphibia
+
 ```{r}
+# table(df_trait_amphibia$Aer) #0 nao entra
 # binarizando as probabilidades de >0.5 para 1, e < para 0
 df_trait_amphibia_bin <- df_trait_amphibia %>%
   mutate(across(
@@ -259,6 +279,7 @@ trait_amphibia_log <- df_trait_amphibia_bin %>%
 normalize_variables <- vegan::decostand(trait_amphibia_log %>%
                             select(OMI, Tol), #, taxa_tol
                           "normalize")
+
 # Removendo as nao padronizadas e 
 # e normalizando as preditoras
 trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
@@ -273,21 +294,24 @@ model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol +
                     correlation = corPagel(1,amphibia_phy,
                                            form = ~Scientific.Name))
 
-plot(resid(model_niche_amphibia) ~ fitted(model_niche_amphibia))
-qqnorm(resid(model_niche_amphibia))
-qqline(resid(model_niche_amphibia))
+# Diagnose model
+amphibia_diagnosis <- plot(model_niche_amphibia)
 
+# AIC(model_niche_amphibia) # 15597 com log
+AIC(df_trait_amphibia)
+
+# Statistical model
 summary(model_niche_amphibia)
-
 R2(model_niche_amphibia)
 
 save(model_niche_amphibia,
-     file = "03_analysis/model_niche_amphibia_2.RData")
+     file = "model_niche_amphibia_normalized.RData")
 
-frogs_diagnosis <- plot(model_niche_amphibia)
+#load("model_niche_amphibia.RData")
 ```
 
 #### 3.2. Squamata
+
 ```{r}
 # binarizando as probabilidades de >0.5 para 1, e < para 0
 df_trait_reptilia_bin <- df_trait_reptilia %>%
@@ -298,6 +322,8 @@ df_trait_reptilia_bin <- df_trait_reptilia %>%
 ```
 
 ```{r}
+# table(trait_reptilia_log$Aer) 0 nao entra
+
 # Os modelos melhoram ao transformar as variaveis
 trait_reptilia_log <- df_trait_reptilia_bin %>%
   mutate(
@@ -328,27 +354,25 @@ model_niche_reptilia <- gls(taxa_fenotipica ~ OMI + Tol +
                          data = trait_reptilia_normalize,
                     correlation = corPagel(1,reptilia_phy,
                                            form = ~Scientific.Name))
+# Model diagnose
+reptilia_diagnosis <- plot(model_niche_reptilia)
 
-plot(resid(model_niche_reptilia) ~ fitted(model_niche_reptilia))
-qqnorm(resid(model_niche_reptilia))
-qqline(resid(model_niche_reptilia))
-
+# Statistical model
 summary(model_niche_reptilia)
-
 R2(model_niche_reptilia)
 
 save(model_niche_reptilia,
-     file = "03_analysis/model_niche_reptilia.RData")
-
-reptilia_diagnosis <- plot(model_niche_reptilia)
+     file = "model_niche_reptilia_normalize.RData")
 ```
 
 #### 3.3. Birds
+
 ```{r}
+#View(df_trait_birds)
 # binarizando as probabilidades de >0.5 para 1, e < para 0
 df_trait_birds_bin <- df_trait_birds %>%
   mutate(across(
-    .cols = c(Fos, Arb, Aqu, Ter), # TODO CHECAR
+    .cols = c(Arb, Aqu, Ter, Aer), # TODO CHECAR
     .fns  = ~ as.integer(.x > 0.5)
   ))
 ```
@@ -365,7 +389,7 @@ trait_birds_log <- df_trait_birds_bin %>%
     Aqu    = as.integer(Aqu),
     Ter   = as.integer(Ter),
     Arb     = as.integer(Arb),
-    Fos     = as.integer(Fos))
+    Aer     = as.integer(Aer))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_birds_log %>%
@@ -380,31 +404,26 @@ trait_birds_normalize <- cbind(trait_birds_log %>%
 
 ```{r}
 model_niche_birds <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Arb + Fos + Ter + Aqu,
+                           Arb + Aer + Ter + Aqu,
                          data = trait_birds_normalize,
-                    correlation = corPagel(1,reptilia_phy,
+                    correlation = corPagel(1,birds_phy,
                                            form = ~Scientific.Name))
 
-plot(resid(model_niche_birds) ~ fitted(model_niche_birds))
-qqnorm(resid(model_niche_birds))
-qqline(resid(model_niche_birds))
-
+birds_diagnosis <- plot(model_niche_birds)# plot(resid(model_niche_birds) ~ fitted(model_niche_birds))
 summary(model_niche_birds)
-
 R2(model_niche_birds)
 
 save(model_niche_birds,
-     file = "03_analysis/model_niche_birds.RData")
-
-birds_diagnosis <- plot(model_niche_birds)
+     file = "model_niche_birds.RData")
 ```
 
 #### 3.4. Mammals
+
 ```{r}
 # binarizando as probabilidades de >0.5 para 1, e < para 0
 df_trait_mammals_bin <- df_trait_mammals %>%
   mutate(across(
-    .cols = c(Fos, Arb, Aqu, Ter), # TODO CHECAR
+    .cols = c(Fos, Arb, Aqu, Ter, Aer), # TODO CHECAR
     .fns  = ~ as.integer(.x > 0.5)
   ))
 ```
@@ -421,7 +440,8 @@ trait_mammals_log <- df_trait_mammals_bin %>%
     Aqu    = as.integer(Aqu),
     Ter   = as.integer(Ter),
     Arb     = as.integer(Arb),
-    Fos     = as.integer(Fos))
+    Fos     = as.integer(Fos),
+    Aer = as.integer(Aer))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_mammals_log %>%
@@ -435,27 +455,23 @@ trait_mammals_normalize <- cbind(trait_mammals_log %>%
 ```
 
 ```{r}
-model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Arb + Fos + Ter + Aqu,
-                         data = trait_mammals_normalize,
+model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol + 
+                             Aqu + Ter + Arb + Fos,
+                         data = trait_mammals_log,
                     correlation = corPagel(1,mammals_phy,
                                            form = ~Scientific.Name))
-
-plot(resid(model_niche_mammals) ~ fitted(model_niche_mammals))
-qqnorm(resid(model_niche_mammals))
-qqline(resid(model_niche_mammals))
-
+# Diagnose model
+mammals_diagnosis <- plot(model_niche_mammals)
+# Model statistics 
 summary(model_niche_mammals)
-
 R2(model_niche_mammals)
 
 save(model_niche_mammals,
-     file = "03_analysis/model_niche_mammals.RData")
-
-mammals_diagnosis <- plot(model_niche_mammals)
+     file = "model_niche_mammals.RData")
 ```
 
 ### 4.0 PWR
+
 ```{r}
 library(pez)
 library(phylobase)
@@ -522,171 +538,114 @@ bandw#0.06224979
 
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
 ```
+
 ### 5.0. Plots
+
 #### 5.1. Plot PCA Climatic niche
-```{r}
 
+```{r}
+# Load pca
+load(
+  "../02_metrics/omi_data/niche_pca.RData"
+)
+
+# Function to plot PCA
+plot_pca <- function(pca_obj, title = NULL) {
+  # Extrair dados dos indivíduos
+  ind <- as.data.frame(pca_obj$li)
+  ind$ID <- rownames(ind)
+  
+  # Extrair dados das variáveis
+  var <- as.data.frame(pca_obj$co)
+  var$varname <- rownames(var)
+  
+  # Verificar nomes das colunas (para adaptação a diferentes objetos PCA)
+  axis1_name <- ifelse("Comp1" %in% colnames(var), "Comp1", 
+                       ifelse("Axis1" %in% colnames(var), "Axis1", colnames(var)[1]))
+  axis2_name <- ifelse("Comp2" %in% colnames(var), "Comp2", 
+                       ifelse("Axis2" %in% colnames(var), "Axis2", colnames(var)[2]))
+  
+  # Criar o plot
+  p <- ggplot() +
+    geom_point(data = ind, aes(x = Axis1, y = Axis2), color = "gray30", size = 2) +
+    geom_segment(data = var, 
+                 aes(x = 0, y = 0, 
+                     xend = !!sym(axis1_name), 
+                     yend = !!sym(axis2_name)),
+                 arrow = arrow(length = unit(0.2, "cm")), color = "red") +
+    geom_text(data = var, 
+              aes(x = !!sym(axis1_name), 
+                  y = !!sym(axis2_name), 
+                  label = varname),
+              color = "red", vjust = -0.5) +
+    theme_minimal() +
+    labs(x = "PCA Axis 1", y = "PCA Axis 2",
+         title = title) +
+    geom_hline(yintercept = 0, linetype = "dashed", alpha = 0.5) +
+    geom_vline(xintercept = 0, linetype = "dashed", alpha = 0.5)
+  
+  return(p)
+}
+
+amphibia_pca <- plot_pca(dudi_amphibia_terrestre)
+reptilia_pca <- plot_pca(dudi_reptilia_terrestre)
+birds_pca <- plot_pca(dudi_birds_terrestre)
+mammals_pca <- plot_pca(dudi_mammals_terrestre)
+
+cowplot::plot_grid(amphibia_pca, reptilia_pca,
+                   birds_pca, mammals_pca)
 ```
 
-#### 5.2. Model plots
-
+#### 5.2. Phylogeny plots
 ```{r}
-models <- list(Frogs = model_anura_svl,
-               Squamates = model_squamata_svl,
-               Birds = model_birds_svl, 
-               Mammals = model_mammals_svl)
+library(phytools)
+
+plot_trait_phylo <- function(df, tree) {
+  # Ajusta nomes das linhas
+  rownames(df) <- df$Scientific.Name
+  # Checa nomes entre arvore e dados
+  chk <- geiger::name.check(tree, df)
+  # Define vetor com o trait
+  ln.hosts <- setNames(df$trait, rownames(df))
+  host.map <- contMap(tree, ln.hosts, plot = FALSE)
+  # Aplica a paleta de cores
+  host.map <- setMap(host.map, viridisLite::viridis(n = 8))
+  # Plota sem legenda
+  plot_result <- plot(host.map,
+       fsize = c(1.2, 1.2),
+       legend = FALSE,
+       dig = 2,
+       outline = FALSE,
+       ftype = "off",
+       type = "fan",
+       lwd = c(2, 6))
+  
+  return(invisible(host.map))
+}
+
+amphibia_tree <- plot_trait_phylo(trait_amphibia_log, amphibia_phy, "OMI")
 
 
-plot_grid(frogs_diagnosis, squamata_diagnosis, birds_diagnosis, mammals_diagnosis)
-```
+library(ggtree)
 
-```{r}
-models <- list(Frogs = model_anura_svl,
-               Squamates = model_squamata_svl,
-               Birds = model_birds_svl, 
-               Mammals = model_mammals_svl)
-modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
+trait_amphibia_log -> df
 
-# per specie
-cm <- c('Tol_past' = 'Tolerance past',
-        'OMI_past' = 'OMI past', 
-        'Tol' = 'Tolerance present',
-        'OMI' = 'OMI present')
+circ <- ggtree(amphibia_phy, layout = "circular")
 
-# frogs
-b <- list(geom_vline(xintercept = 0, color = 'black'),
-          annotate("rect", alpha = .0,
-                   xmin = -.1, xmax = .1, 
-                   ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .0, 
-                     size = 5, color = 'green4'), theme_classic())
+tip_order <- amphibia_phy$tip.label
 
-modelplot(model_anura_svl, background = b, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
+trait_amphibia_log_ordered <- trait_amphibia_log[tip_order, ]
+rownames(trait_amphibia_log_ordered) <- amphibia_phy$tip.label
 
-# squamata
-c <- list(geom_vline(xintercept = 0, color = 'black'),
-          annotate("rect", alpha = .0,
-                   xmin = -5.0, xmax = 5, 
-                   ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .0, 
-                     size = 5, color = 'green'))
+t <- trait_amphibia_log_ordered %>%
+  mutate(taxa_fenotipica = scale(taxa_fenotipica),
+         OMI = scale(OMI),
+         Tol = scale(Tol)
+         ) %>%
+  select(taxa_fenotipica, OMI, Tol)
 
-modelplot(model_squamata_svl, background = c, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
-
-# birds
-d <- list(geom_vline(xintercept = 0, color = 'black'),
-          annotate("rect", alpha = .0,
-                   xmin = -20000, xmax = 20000, 
-                   ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .0, 
-                     size = 5))
-
-modelplot(model_birds_svl, background = d, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
-
-# mammals
-theme_set(
-    theme_classic(base_size = 15))
-
-a <- list(geom_vline(xintercept = 0, color = 'black'),
-          annotate("rect", alpha = .1,
-          xmin = -.0001, xmax = .0001, 
-          ymin = -Inf, ymax = Inf),
-          geom_point(aes(y = term, x = estimate), alpha = .0, 
-          size = 10, color = 'brown4'))
-
-modelplot(model_mammals_svl, background = a, coef_omit = 'Interc',  coef_map = cm, linetype = 'dotted')
-```
-
-```{r}
-models <- list(Frogs = model_anura_svl_normalizado,
-               Squamates = model_squamata_svl_normalizado,
-               Birds = model_birds_svl_normalizado, 
-               Mammals = model_mammals_svl_normalizado)
-
-modelplot(models, coef_omit = 'Interc') + facet_grid(~model)
-modelplot(model_anura_svl_normalizado, coef_omit = 'Interc')
-modelplot(model_mammals_svl_normalizado, coef_omit = 'Interc')
-```
-
-#### 5.3. Phylogeny plots
-
-```{r}
-# Frogs
-tree <- anura_phy_pgls
-teste <- amphibia_dataset_full
-teste$trait_rate <- teste$trait_rate*1000
-View(teste)
-
-tree$Valor <- teste$trait_rate[match(tree$tip.label, teste$Species)]
-
-rownames(teste) <- teste$Species
-chk<-name.check(tree,teste)
-summary(chk)
-
-ln.hosts<-setNames(log(teste$trait_rate),rownames(teste))
-
-host.map<-contMap(tree,ln.hosts,plot=FALSE)
-host.map<-setMap(host.map,c("forestgreen","firebrick1"))
-
-plot(setMap(host.map,c("#2c7fb8", "#edf8b1")),
-     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
-     dig=2,outline=FALSE,ftype="i", type='fan', lwd=c(4,10))
-
-# Squamata
-squamata_phy_pgls
-squamata_dataset_full
-
-squamata_phy_pgls$Valor <- squamata_dataset_full$trait_rate[match(squamata_phy_pgls$tip.label, squamata_dataset_full$Species)]
-
-rownames(squamata_dataset_full) <- squamata_dataset_full$Species
-chk<-name.check(squamata_phy_pgls,squamata_dataset_full)
-summary(chk)
-
-squamata.hosts<-setNames(log(squamata_dataset_full$trait_rate),rownames(squamata_dataset_full))
-
-squamata.map<-contMap(squamata_phy_pgls,squamata.hosts,plot=FALSE)
-#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
-
-plot(setMap(squamata.map,c("#2c7fb8", "#edf8b1")),
-     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
-     dig=2,outline=FALSE,ftype="off", type='fan',lwd=c(4,10))
-
-# Birds
-birds_phy_pgls
-birds_dataset_full
-
-birds_phy_pgls$Valor <- birds_dataset_full$trait_rate[match(birds_phy_pgls$tip.label, birds_dataset_full$Species)]
-
-rownames(birds_dataset_full) <- birds_dataset_full$Species
-chk<-name.check(birds_phy_pgls,birds_dataset_full)
-summary(chk)
-
-birds.hosts<-setNames(log(birds_dataset_full$trait_rate),rownames(birds_dataset_full))
-
-birds.map<-contMap(birds_phy_pgls,birds.hosts,plot=FALSE)
-#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
-
-plot(setMap(birds.map,c("#2c7fb8", "#edf8b1")),
-     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
-     dig=2,outline=FALSE,ftype="off", type='fan', lwd=c(3,10))
-
-# Mammals
-mammals_phy_pgls
-mammals_dataset_full
-
-rownames(mammals_dataset_full) <- mammals_dataset_full$Species
-chk<-name.check(mammals_phy_pgls,mammals_dataset_full)
-summary(chk)
-
-mammals.hosts<-setNames(log(mammals_dataset_full$trait_rate),rownames(mammals_dataset_full))
-
-mammals.map<-contMap(mammals_phy_pgls,mammals.hosts,plot=FALSE)
-#host.map<-setMap(host.map,c("forestgreen","firebrick1"))
-
-plot(setMap(mammals.map,c("#2c7fb8", "#edf8b1")),
-     fsize=c(1.2,1.2),leg.txt="Rate of evolution (log)",
-     dig=2,outline=FALSE,ftype="i", type='fan', lwd=c(3,10))
-
+plot_amphibia <- gheatmap(circ, t, width=0.1) +
+  scale_fill_viridis_c(option="A", name="continuous\nvalue")
 ```
 
 ```{r}
@@ -767,4 +726,80 @@ gridplot(phy_niche,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
 barplot(phy_niche, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
         tree.type = "fan", bar.col = "grey35")
 gridplot(phy_niche)
+```
+
+#### 5.3. Model plots
+```{r}
+load(
+  "model_niche_amphibia_log.RData"
+)
+load(
+  "model_niche_reptilia_log.RData"
+)
+load(
+  "model_niche_birds_log.RData"
+)
+load(
+  "model_niche_mammals.RData"
+)
+
+
+summary(model_niche_amphibia)
+summary(model_niche_reptilia)
+summary(model_niche_birds)
+summary(model_niche_mammals)
+
+models <- list(Amphibia = model_niche_amphibia,
+               Squamates = model_niche_reptilia,
+               Birds = model_niche_birds, 
+               Mammals = model_niche_mammals)
+
+results <- modelsummary::modelplot(models, coef_omit = "Interc", draw=FALSE)
+
+results$term <- factor(results$term, 
+                       levels = c("OMI", "Tol", "Arb", 
+                                  "Fos",
+                                  "Ter","Aqu",
+                                  "Aer"),
+                       labels = c("Niche position\n(OMI)" ,"Niche breadth\n(Tol)", "Arboreal", 
+                                  "Fossorial",
+                                  "Terrestrial","Aquatic", 
+                                  "Aerial"))
+
+background_data <- data.frame(
+  model = unique(results$model),  # agora a coluna se chama 'model'
+  fill = c("#bfbbbc", "#bfbbbc", "#bfbbbc", "#bfbbbc")
+)
+
+p <- ggplot(results, aes(x = 1, y = estimate, ymin = conf.low, ymax = conf.high)) +
+  geom_rect(data = background_data, 
+            aes(xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, fill = fill),
+            inherit.aes = FALSE, show.legend = FALSE, alpha = 0.1) +
+  geom_pointrange(shape = 21, size = 0.5, fill = "#bfbbbc", color = "black") +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = NULL, y = "Model Coefficients (CI 95%)") +
+  facet_grid(term ~ model, scales = "free_x", switch = "y") +
+  coord_flip() +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.background = element_blank(),
+    axis.title = element_text(size = 10, face = "bold"),
+    axis.text = element_text(size = 12),
+    axis.line = element_line(colour = "black"),
+    axis.ticks.y.left = element_blank(),
+    axis.text.x = element_text(),
+    axis.text.y = element_blank(),
+    plot.background = element_rect(fill = "white"),
+    strip.background = element_blank(),
+    strip.placement = "outside",
+    strip.text.y.left = element_text(angle = 0, hjust = 1, vjust = 0.5, size = 12),
+    legend.background = element_rect(colour = 'white', fill = 'white'),
+    legend.key = element_blank(),
+    legend.title = element_blank(),
+    legend.position = "top") +
+  scale_fill_identity() 
+
+ggsave(paste0("../figures/fig4coefplot.tiff"), plot=p,
+       width=10, height=6, units="in", dpi = 'print')
 ```
