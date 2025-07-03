@@ -16,7 +16,16 @@ library(geiger) # phylogenetic plot
 library(nlme) # gls analysis
 library(cowplot) # plots
 library(rr2) # r2 pgls
-#library(modelsummary) # modelplots
+# modelplots coeficients 
+library(modelsummary) 
+# PWR analysis
+library(pez)
+library(phylobase)
+library(MCMCglmm)
+library(diversitree)
+library(ib)
+# auxiliar na pwr
+library(grid)
 ```
 
 ### 1. Load data
@@ -54,6 +63,36 @@ rate_body_amphibia <- Reduce(
                         1, median, na.rm = TRUE)
   ) %>% select(specie, median_rate) %>%
   rename(taxa_fenotipica = median_rate)
+
+# OMI Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Amphibia",
+            "OMIrate_evolution.RData")
+)
+rate_omi_amphibia <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_omi = median_rate)
+
+# Tol Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Amphibia",
+            "tolraterate_evolution.RData")
+)
+rate_tol_amphibia <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_tol = median_rate)
 
 # Reptilia
 load(
@@ -140,7 +179,9 @@ rate_niche_amphibia <- left_join(niche_amphibia_df,
           by = c("Scientific.Name" = "specie"))
 
 df_trait_amphibia <- rate_niche_amphibia %>%
-  left_join(TetraData, by = "Scientific.Name") 
+  left_join(TetraData, by = "Scientific.Name") %>%
+  left_join(rate_tol_amphibia, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_omi_amphibia, by = c("Scientific.Name" = "specie"))
 ```
 
 Phylogeny to PGLS
@@ -257,7 +298,7 @@ mammals_phy <- picante::prune.sample(mammals_community,
 df_trait_amphibia_bin <- df_trait_amphibia %>%
   mutate(across(
     .cols = c(Fos, Arb, Aqu, Ter),
-    .fns  = ~ as.integer(.x > 0.5)
+    .fns  = ~ as.factor(.x > 0.5)
   ))
 ```
 
@@ -268,12 +309,13 @@ trait_amphibia_log <- df_trait_amphibia_bin %>%
     taxa_fenotipica = log(taxa_fenotipica),
     OMI    = log(OMI),
     Tol    = log(Tol+1),
-    #taxa_tol   = log(taxa_tol),
-    #taxa_omi = log(taxa_omi),
-    Aqu    = as.integer(Aqu),
-    Ter   = as.integer(Ter),
-    Arb     = as.integer(Arb),
-    Fos     = as.integer(Fos))
+    taxa_tol   = log(taxa_tol),
+    taxa_omi = log(taxa_omi),
+    Aqu    = as.factor(Aqu),
+    Ter   = as.factor(Ter),
+    Arb     = as.factor(Arb),
+    Fos     = as.factor(Fos)) %>%
+  remove_missing()
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_amphibia_log %>%
@@ -288,9 +330,9 @@ trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
 ```
 
 ```{r}
-model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol +
+model_niche_amphibia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
                            Arb + Fos + Ter + Aqu,
-                         data = trait_amphibia_normalize,
+                         data = trait_amphibia_log,
                     correlation = corPagel(1,amphibia_phy,
                                            form = ~Scientific.Name))
 
@@ -456,7 +498,7 @@ trait_mammals_normalize <- cbind(trait_mammals_log %>%
 
 ```{r}
 model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol + 
-                             Aqu + Ter + Arb + Fos,
+                             Ter + Arb + Fos,
                          data = trait_mammals_log,
                     correlation = corPagel(1,mammals_phy,
                                            form = ~Scientific.Name))
@@ -470,16 +512,56 @@ save(model_niche_mammals,
      file = "model_niche_mammals.RData")
 ```
 
-### 4.0 PWR
+### 4. PWR
+#### 4.1. Amphibia
+#### 4.2. Reptilia
+#### 4.3. Birds
+#### 4.4. Mammals
+```{r}
+load(
+  "model_niche_mammals.RData"
+)
+source("pwr_functions/pwr-functions.R")
+source("pwr_functions/pwr-plots.R")
+
+c.data <- phylo4d(mammals_phy,
+                  trait_mammals_log,
+                  label.type="column",
+                  label.column="Scientific.Name")
+
+phyloWR <- pwr(taxa_fenotipica ~ Tol + OMI, c.data,
+               wfun="brownian", verbose=FALSE)
+
+# Extrair coeficientes para mais de uma variavel na pwr
+getEst <- getEst_mod(phyloWR)
+
+# Criar dataframe externamente para extrair coeficientes do PGLS global
+omi <- data.frame(
+  gest=coef(model_niche_mammals)[2],
+  glb=confint(model_niche_mammals)[2,1],
+  gub=confint(model_niche_mammals)[2,2]
+)
+tol <- data.frame(
+  gest=coef(model_niche_mammals)[3],
+  glb=confint(model_niche_mammals)[3,1],
+  gub=confint(model_niche_mammals)[3,2]
+)
+
+getEst_omi <- getEst %>%
+  select(est_OMI, lb_OMI, ub_OMI) %>%
+  cbind(omi)
+
+getEst_tol <- getEst %>%
+  select(est_Tol, lb_Tol, ub_Tol) %>%
+  cbind(tol)
+
+pdf("mammals.pdf", width=8, height=25)
+tp(addData(c.data[,0], getEst_omi),show.estimates=TRUE, aex=0.4,
+   show.tip.label = FALSE, )
+dev.off()
+```
 
 ```{r}
-library(pez)
-library(phylobase)
-library(MCMCglmm)
-library(diversitree)
-library(ib)
-
-# EXEMPLO DO R
 # Combine in phylobase format, and then run a scatterplot
 c.data <- phylo4d(mammals_phy_pgls, mammals_dataset_full_normalizado)
 c.data
@@ -539,10 +621,136 @@ bandw#0.06224979
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
 ```
 
-### 5.0. Plots
 
-#### 5.1. Plot PCA Climatic niche
+### 5. PhyloPath
+#### 5.0. Theorical models
+```{r}
+library(phylopath)
+library(ape)
 
+# only rates 
+models_climate <- define_model_set(
+  null = c(),
+  # nicho climatico afeta evolucao morfologica
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
+  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
+  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
+  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
+  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
+  # evolucao morfologica e tolerancia afetam a evolucao da posicao
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
+  # evolucao morfologica e posicao afetam a evolucao tolerancia
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi)
+)
+
+# climatic niche rates + habitat
+models_habitat <- define_model_set(
+  null = c(),
+  # nicho climatico afeta evolucao morfologica
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Fos + Arb + Aqu + Ter),
+  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
+  M2 = c(taxa_fenotipica ~ taxa_omi + Fos + Arb + Aqu + Ter, taxa_omi ~ taxa_tol),
+  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
+  M3 = c(taxa_fenotipica ~ taxa_tol + Fos + Arb + Aqu + Ter, taxa_tol ~ taxa_omi),
+  # evolucao morfologica e tolerancia afetam a evolucao da posicao
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Fos + Arb + Aqu + Ter),
+  # evolucao morfologica e posicao afetam a evolucao tolerancia
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Fos + Arb + Aqu + Ter),
+  # Habitat como resposta
+  M6 = c(
+  Fos ~ taxa_fenotipica + taxa_omi + taxa_tol,
+  Arb ~ taxa_fenotipica + taxa_omi + taxa_tol,
+  Aqu ~ taxa_fenotipica + taxa_omi + taxa_tol,
+  Ter ~ taxa_fenotipica + taxa_omi + taxa_tol),
+  # Habitat como resposta + interagindo com nicho e taxa morfo
+  M7 = c(
+  Fos ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
+  Arb ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
+  Aqu ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
+  Ter ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi +taxa_tol)
+  )
+```
+
+#### 5.1. Amphibia
+```{r}
+# Amphibia
+rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
+
+result_amphibia <- phylo_path(models_habitat, 
+                     data = trait_amphibia_log,
+                     tree = amphibia_phy,
+                     model = 'lambda')
+
+summary(result_amphibia)
+
+best_amphibia <- best(result_amphibia)
+coef_plot(best_amphibia,
+          error_bar = "se") +
+  ggplot2::coord_flip()
+
+plot(best_amphibia, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
+?coef_plot
+
+avg <- average(result_amphibia, avg_method = "full")
+coef_plot(avg,
+          error_bar = "se",
+          order_by = "strength",
+          to = NULL) +
+  ggplot2::coord_flip()
+plot(avg, edge_width = 0.02)
+
+best_amphibia <- best(result_amphibia)
+
+```
+
+#### 5.2. Reptilia
+#### 5.3. Birds
+#### 5.4. Mammals
+```{r}
+# Squamata
+rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
+result_reptilia <- phylo_path(models, 
+                     data = trait_reptilia_log,
+                     tree = reptilia_phy,
+                     model = 'lambda')
+
+# Birds
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+result_birds <- phylo_path(models, 
+                     data = trait_birds_log,
+                     tree = birds_phy,
+                     model = 'lambda')
+
+# Mammals
+rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
+result_mammals <- phylo_path(models, 
+                     data = trait_mammals_log,
+                     tree = mammals_phy,
+                     model = 'lambda')
+
+summary(result_amphibia) # M8
+summary(result_reptilia) # M4
+summary(result_birds) # M5
+summary(result_mammals) # M4
+
+
+best_reptilia <- best(result_reptilia)
+best_birds <- best(result_birds)
+best_mammals <- best(result_mammals)
+
+plot(best_reptilia, edge_width = 1.2)
+plot(best_birds, edge_width = 1.2)
+plot(best_mammals, edge_width = 1.2)
+
+```
+
+### 6.0. Plots
+#### 6.1. Plot PCA Climatic niche
 ```{r}
 # Load pca
 load(
@@ -596,7 +804,8 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
                    birds_pca, mammals_pca)
 ```
 
-#### 5.2. Phylogeny plots
+#### 6.2. Phylogeny plots
+
 ```{r}
 library(phytools)
 
@@ -728,7 +937,8 @@ barplot(phy_niche, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"),
 gridplot(phy_niche)
 ```
 
-#### 5.3. Model plots
+#### 6.3. Model plots
+
 ```{r}
 load(
   "model_niche_amphibia_log.RData"

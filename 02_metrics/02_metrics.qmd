@@ -6,7 +6,6 @@ editor: visual
 ---
 
 ### 0. Libraries
-
 ```{r}
 library(tidyverse)  # data science handling
 library(data.table) # data science handling
@@ -16,9 +15,7 @@ library(subniche)   # OMI analysis
 ```
 
 ### 1. Load data
-
 ##### 1.1. Distribution data
-
 ```{r}
 # Community data from TetrapodTraits
 vert_assemblages <- data.table::fread("Tetrapod_360.csv",
@@ -32,7 +29,6 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
 ```
 
 ##### 1.2. Climate data
-
 ```{r}
 grid_climate <- read_csv(
   "../shapefile/climate_variables_grid.csv"
@@ -45,9 +41,7 @@ any(duplicated(grid_climate$Cl_I110))
 ```
 
 ##### 1.3. Species list
-
 Herein, we use only species with body size or body mass data observed (non-imputed). For this reason, we use the BAMM trait file for each group. Those files were generated after run *01_extraction.qmd*.
-
 ```{r}
 amphibia_trait <- read.table(file.path(
   "..",
@@ -84,8 +78,7 @@ all_species <- bind_rows(
   mutate(Scientific.Name = str_replace_all(Scientific.Name, "_", " "))
 ```
 
-##### 1.3. TetrapodTraits
-
+##### 1.4. TetrapodTraits
 ```{r}
 TetraData <- data.table::fread(
   file.path("..", "traits", "TetrapodTraits_1.0.0.csv"))
@@ -105,8 +98,7 @@ TetraDataHabitat %>%
   arrange(desc(n))
 ```
 
-##### 1.3. Venn Diagram of Major Habitat em TetrapodTraits
-
+##### 1.5. Venn Diagram of Major Habitat em TetrapodTraits
 ```{r}
 venn_data <- TetraDataHabitat %>%
   count(EcoTer, EcoFresh, EcoMar) %>%
@@ -132,8 +124,7 @@ plot(fit,
      quantities = TRUE)
 ```
 
-##### 1.4. Obtain species in TetrapodTraits according major habitat and dependence of climate
-
+##### 1.6. Obtain species in TetrapodTraits according major habitat and dependence of climate
 ```{r}
 # exclusivamente em ambientes nao-marinhos
 TetraDataTerrestrial <- TetraDataHabitat %>%
@@ -174,11 +165,8 @@ mammalia_list_terrestrial <- TetraDataTerrestrial %>%
 ```
 
 ### 2. Data processing
-
 ##### 2.1. Obtain species matrix with climate data
-
 ###### Amphibia
-
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -227,7 +215,6 @@ nrow(amp_terrestrial_climate) # 11353 grids cells
 ```
 
 ###### Reptilia
-
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -279,7 +266,6 @@ nrow(rep_terrestrial_climate) # 11885 grids cells
 ```
 
 ###### Aves
-
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -328,7 +314,6 @@ nrow(birds_terrestrial_climate) # # 14687 grids cells
 ```
 
 ###### Mammalia
-
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -377,9 +362,7 @@ nrow(mammals_terrestrial_climate) # 13631 grids cells
 ```
 
 ### 3. Niche metrics
-
 ##### 3.1. VIF climate variables
-
 ```{r}
 # identify collinear variables that should be excluded VIF > 10
 
@@ -409,7 +392,6 @@ terrestrial_climate_mammals <- usdm::exclude(
 ```
 
 ##### 3.2. Outlying Mean Indexes (OMI)
-
 ```{r}
 # Amphibia
 dudi_amphibia_terrestre <- dudi.pca(terrestrial_climate_amp,
@@ -483,7 +465,6 @@ hist(niche_amphibia_terrestrial_df$Tol_adj)
 ```
 
 ### 4. Save data
-
 ```{r}
 # To BAMM
 # Amphibia

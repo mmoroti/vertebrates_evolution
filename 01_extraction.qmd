@@ -6,7 +6,6 @@ editor: visual
 ---
 
 ### 0.0. Libraries
-
 ```{r}
 library(ape) # phylogeny package
 library(phytools) # phylogeny package
@@ -18,9 +17,7 @@ library(BAMMtools) # BAMM package
 ```
 
 ### 0.1. Load data
-
 #### 0.1. Trait data
-
 ```{r}
 group <- "Amphibia"
 #group <- "Reptilia"
@@ -33,13 +30,12 @@ trait <- "BodyMass_g"
 ```
 
 Phenotype trait
-
 ```{r}
 TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
 
 group_trait <- TetraData %>%
   filter(Class == group) %>%
-  filter(ImputedLength == 0) %>%
+  filter(ImputedMass == 0) %>%
   select(Scientific.Name, all_of(trait)) %>%
   mutate(across(all_of(trait), log))
 
@@ -48,7 +44,6 @@ group_community <- group_trait %>%
 ```
 
 Climatic niche
-
 ```{r}
 amphibia_niche <- data.table::fread(
   file.path("02_metrics", "omi_data", 
@@ -65,7 +60,6 @@ group_community <- group_trait %>%
 ```
 
 #### 0.2. Phylogenetic data
-
 ```{r}
 tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
