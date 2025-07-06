@@ -6,6 +6,7 @@ editor: visual
 ---
 
 ### 0.0. Libraries
+
 ```{r}
 library(ape) # phylogeny package
 library(phytools) # phylogeny package
@@ -17,7 +18,9 @@ library(BAMMtools) # BAMM package
 ```
 
 ### 0.1. Load data
+
 #### 0.1. Trait data
+
 ```{r}
 group <- "Amphibia"
 #group <- "Reptilia"
@@ -30,6 +33,7 @@ trait <- "BodyMass_g"
 ```
 
 Phenotype trait
+
 ```{r}
 TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
 
@@ -44,6 +48,7 @@ group_community <- group_trait %>%
 ```
 
 Climatic niche
+
 ```{r}
 amphibia_niche <- data.table::fread(
   file.path("02_metrics", "omi_data", 
@@ -60,6 +65,7 @@ group_community <- group_trait %>%
 ```
 
 #### 0.2. Phylogenetic data
+
 ```{r}
 tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
@@ -100,7 +106,9 @@ all(is.binary(trees))
 ```
 
 ### 1.0. Create files to BAMM analysis
+
 1.1. Obtain samples of phylogeny
+
 ```{r}
 # Generate a data frame to store the prior values
 # JUST RUN IT, DON'T CHANGE ANYTHING
@@ -109,6 +117,7 @@ sampled_trees <- sample(trees, 10)
 ```
 
 If you already have the phylogeny-sample, run it here!
+
 ```{r}
 trees <- lapply(file.path(
   "BAMM", group,
@@ -119,6 +128,7 @@ sampled_trees <- do.call(c, trees)
 ```
 
 1.2. Obtain the same species in phylogeny and traits
+
 ```{r}
 especies_comuns <- intersect(
   sampled_trees[[1]]$tip.label,  # spp na arvore
@@ -133,6 +143,7 @@ names(position_niche) <- group_trait_filter$Scientific.Name
 ```
 
 1.3. Save trait file
+
 ```{r}
 write.table(position_niche, 
             file = file.path("BAMM", group, "/", 
@@ -144,6 +155,7 @@ write.table(position_niche,
 ```
 
 ### 2.0. Priors of trait evolution
+
 ```{r}
 priors_list <- list()
 
@@ -170,6 +182,7 @@ priors <- do.call(rbind, priors_list)
 ```
 
 ### 3.0 Generate control file to BAMM analysis
+
 ```{r}
 generateControlFile(file = file.path("BAMM", group, "/", paste0("controlfile_", group, ".txt")),
                     type = 'trait', params = list(
@@ -193,7 +206,9 @@ divcontrol <- readLines(file.path("BAMM", group, "/", paste0("controlfile_", gro
 ```
 
 ### 4.0. Run BAMM analysis
+
 4.1. Set your output directory and change local directory
+
 ```{r}
 # Local directory output
 BAMMpath <- "D:/repos/vertebrates_evolution/BAMM"
@@ -202,6 +217,7 @@ setwd(file.path("BAMM", group))
 ```
 
 4.2. Trait evolution rate
+
 ```{r}
 for(i in 1:length(sampled_trees)){
   
@@ -265,6 +281,7 @@ for(i in 1:length(sampled_trees)){
 ```
 
 ### 5.0 Check convergence
+
 ```{r}
 for(i in 1:10){
   mcmcout <- read.table(
@@ -280,7 +297,9 @@ for(i in 1:10){
 ```
 
 ### 6.0 Reading multiple event data
+
 6.1. Set how many readings and trait type
+
 ```{r}
 trait <- "body"
 n_arvores <- 10
@@ -288,6 +307,7 @@ lista_dfs <- list()
 ```
 
 6.2. Run event data read
+
 ```{r}
 for (i in 1:n_arvores) {
   # load tree
@@ -316,6 +336,7 @@ for (i in 1:n_arvores) {
 ```
 
 6.3. Obtain event data result
+
 ```{r}
 load(paste0(trait, "rate_evolution.RData")) 
 

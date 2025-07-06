@@ -35,7 +35,8 @@ library(grid)
 ```{r}
 TetraData <- data.table::fread("../traits/TetrapodTraits_1.0.0.csv") %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
-  select(Scientific.Name, Fos, Ter, Aqu, Arb, Aer, ImputedHabitat) 
+  select(Scientific.Name, Fos, Ter, Aqu, Arb, Aer, 
+         ImputedHabitat, Suborder) 
 ```
 
 #### 1.2. Climate niche
@@ -168,7 +169,7 @@ mammals_phy_full <- read.tree(file.path(
 niche_amphibia_df <- niche_amphibia_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_amphibia_terrestrial_df)) %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
-  select(Scientific.Name, OMI, Tol)
+  select(Scientific.Name, OMI, Tol) 
 ```
 
 Merge traits
@@ -181,7 +182,8 @@ rate_niche_amphibia <- left_join(niche_amphibia_df,
 df_trait_amphibia <- rate_niche_amphibia %>%
   left_join(TetraData, by = "Scientific.Name") %>%
   left_join(rate_tol_amphibia, by = c("Scientific.Name" = "specie")) %>%
-  left_join(rate_omi_amphibia, by = c("Scientific.Name" = "specie"))
+  left_join(rate_omi_amphibia, by = c("Scientific.Name" = "specie")) %>%
+  remove_missing()
 ```
 
 Phylogeny to PGLS
@@ -314,8 +316,7 @@ trait_amphibia_log <- df_trait_amphibia_bin %>%
     Aqu    = as.factor(Aqu),
     Ter   = as.factor(Ter),
     Arb     = as.factor(Arb),
-    Fos     = as.factor(Fos)) %>%
-  remove_missing()
+    Fos     = as.factor(Fos)) 
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_amphibia_log %>%
@@ -513,10 +514,15 @@ save(model_niche_mammals,
 ```
 
 ### 4. PWR
+
 #### 4.1. Amphibia
+
 #### 4.2. Reptilia
+
 #### 4.3. Birds
+
 #### 4.4. Mammals
+
 ```{r}
 load(
   "model_niche_mammals.RData"
@@ -621,9 +627,10 @@ bandw#0.06224979
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
 ```
 
-
 ### 5. PhyloPath
+
 #### 5.0. Theorical models
+
 ```{r}
 library(phylopath)
 library(ape)
@@ -672,6 +679,7 @@ models_habitat <- define_model_set(
 ```
 
 #### 5.1. Amphibia
+
 ```{r}
 # Amphibia
 rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
@@ -709,8 +717,11 @@ best_amphibia <- best(result_amphibia)
 ```
 
 #### 5.2. Reptilia
+
 #### 5.3. Birds
+
 #### 5.4. Mammals
+
 ```{r}
 # Squamata
 rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
@@ -750,7 +761,9 @@ plot(best_mammals, edge_width = 1.2)
 ```
 
 ### 6.0. Plots
+
 #### 6.1. Plot PCA Climatic niche
+
 ```{r}
 # Load pca
 load(
@@ -807,54 +820,108 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
 #### 6.2. Phylogeny plots
 
 ```{r}
-library(phytools)
-
-plot_trait_phylo <- function(df, tree) {
-  # Ajusta nomes das linhas
-  rownames(df) <- df$Scientific.Name
-  # Checa nomes entre arvore e dados
-  chk <- geiger::name.check(tree, df)
-  # Define vetor com o trait
-  ln.hosts <- setNames(df$trait, rownames(df))
-  host.map <- contMap(tree, ln.hosts, plot = FALSE)
-  # Aplica a paleta de cores
-  host.map <- setMap(host.map, viridisLite::viridis(n = 8))
-  # Plota sem legenda
-  plot_result <- plot(host.map,
-       fsize = c(1.2, 1.2),
-       legend = FALSE,
-       dig = 2,
-       outline = FALSE,
-       ftype = "off",
-       type = "fan",
-       lwd = c(2, 6))
-  
-  return(invisible(host.map))
-}
-
-amphibia_tree <- plot_trait_phylo(trait_amphibia_log, amphibia_phy, "OMI")
-
-
+library(ggtree)
+library(treeio)
+library(tidytree)
+library(ggplot2)
+library(TDbook)
 library(ggtree)
 
-trait_amphibia_log -> df
-
-circ <- ggtree(amphibia_phy, layout = "circular")
-
+# Preparing data
 tip_order <- amphibia_phy$tip.label
 
-trait_amphibia_log_ordered <- trait_amphibia_log[tip_order, ]
+trait_amphibia_log_ordered <- trait_amphibia_log[
+  match(tip_order, trait_amphibia_log$Scientific.Name), ] %>%
+  left_join(TetraData[,c(1,8)], by = "Scientific.Name") %>%
+  mutate(Suborder = as.factor(Suborder))
+
 rownames(trait_amphibia_log_ordered) <- amphibia_phy$tip.label
 
-t <- trait_amphibia_log_ordered %>%
-  mutate(taxa_fenotipica = scale(taxa_fenotipica),
-         OMI = scale(OMI),
-         Tol = scale(Tol)
-         ) %>%
-  select(taxa_fenotipica, OMI, Tol)
+rate_amphibia <- trait_amphibia_log_ordered %>%
+  select(taxa_omi, taxa_tol)
 
-plot_amphibia <- gheatmap(circ, t, width=0.1) +
-  scale_fill_viridis_c(option="A", name="continuous\nvalue")
+## load `tree_anole` and `df_svl` from 'TDbook'
+svl <- as.matrix(trait_amphibia_log_ordered[4])[,1]
+fit <- phytools::fastAnc(amphibia_phy, svl, vars=TRUE, CI=TRUE)
+
+td <- data.frame(node = nodeid(amphibia_phy, names(svl)),
+                 trait = svl)
+nd <- data.frame(node = names(fit$ace), trait = fit$ace)
+d <- rbind(td, nd)
+d$node <- as.numeric(d$node)
+
+tree <- full_join(amphibia_phy, d, by = 'node')
+
+# adicionar tip labels
+# Get the order of visualization of the tip.labels (not the order of tip.labels):
+d = fortify(amphibia_phy)
+d = subset(d, isTip)
+tree_tiporder<-with(d, label[order(y, decreasing=T)])
+#FamilyData<-trait_amphibia_log_ordered[tree_tiporder,] # reorder rows to match the phylogeny tree_tiporder
+
+# Get the suborder names that will appear in the outer band:
+levels(trait_amphibia_log_ordered$Suborder) # reorder levels to match tiplabels
+trait_amphibia_log_ordered$Suborder<-factor(
+  trait_amphibia_log_ordered$Suborder,
+  levels = unique(trait_amphibia_log_ordered$Suborder))
+trait_amphibia_log_ordered$HighRankLabel<-NA
+
+for(i in 1:nlevels(trait_amphibia_log_ordered$Suborder)){
+  selected_row<-which(trait_amphibia_log_ordered$Suborder==levels(trait_amphibia_log_ordered$Suborder)[i])
+  if(length(selected_row)<=2){
+    trait_amphibia_log_ordered$HighRankLabel[selected_row[1]]<-paste(trait_amphibia_log_ordered$Suborder[selected_row[1]])
+  } else {
+    midrow<-(median(selected_row))
+    trait_amphibia_log_ordered$HighRankLabel[midrow]<-paste(trait_amphibia_log_ordered$Suborder[midrow])
+  }
+}
+
+# Create a categorical variable to represent the colour of the families in a outer band:
+trait_amphibia_log_ordered$ColorTaxa<-trait_amphibia_log_ordered$Suborder
+unique_levels<-unique(trait_amphibia_log_ordered$ColorTaxa)
+trait_amphibia_log_ordered$ColorTaxa<-factor(trait_amphibia_log_ordered$ColorTaxa, levels=unique_levels)
+is.even <- function(x) x %% 2 == 0
+trait_amphibia_log_ordered$ColorTaxa<-as.character(trait_amphibia_log_ordered$ColorTaxa)
+for(i in 1:nlevels(trait_amphibia_log_ordered$Suborder)){
+  # Detect if the row i had its level already replaced  
+  if(length(which(trait_amphibia_log_ordered$ColorTaxa==unique_levels[i]))>=1){
+    rows_id<-which(trait_amphibia_log_ordered$ColorTaxa==unique_levels[i])
+    if(is.even(i)==TRUE){ trait_amphibia_log_ordered[rows_id, ncol(trait_amphibia_log_ordered)]<-rep("A", length(rows_id)) }
+    else { trait_amphibia_log_ordered[rows_id, ncol(trait_amphibia_log_ordered)]<-rep("B", length(rows_id)) }
+  }
+}
+trait_amphibia_log_ordered$HexColors<-NA
+trait_amphibia_log_ordered[which(trait_amphibia_log_ordered$ColorTaxa=="A"),]$HexColors<-"gray20"
+trait_amphibia_log_ordered[which(trait_amphibia_log_ordered$ColorTaxa=="B"),]$HexColors<-"gray80"
+trait_amphibia_log_ordered<-trait_amphibia_log_ordered[amphibia_phy$tip.label,]
+
+# Plot tree with trait rate 
+tree_plot <- ggtree(tree, layout = "circular", ladderize = FALSE, size = 1.0) +
+  geom_tree(aes(color=trait), continuous = 'color', size = 2) +
+  scale_color_viridis_c(option = "viridis"); tree_plot  # Escala contínua
+
+# plot taxas heatmap
+plot_amphibia <- gheatmap(tree_plot, 
+                          rate_amphibia, # only rate of climatic niche
+                          width= 0.1,
+                          colnames = FALSE) +
+  scale_fill_viridis_c(name="continuous\nvalue", alpha = 1)
+# adiciona nova camada
+plot_amphibia <- plot_amphibia + new_scale_fill()
+# plot heatmap dos clados
+tree_plot_h <- gheatmap(plot_amphibia,
+                        trait_amphibia_log_ordered[, "HexColors", drop=F],
+                        offset=38.75, width=.025,
+                        colnames_angle=90, colnames=F, color=NULL) +
+  scale_fill_identity() +
+  geom_tiplab2(aes(label=HighRankLabel), size=.62, align=F, offset=11) +
+  theme(legend.position = "right"); tree_plot_h
+
+ggsave(paste0(getwd(),
+              "/figures/FigTreeAmphibia.png"), 
+       plot=tree_plot_h, width=100, height=100, units="cm", 
+       dpi = 600, limitsize = FALSE)
+
 ```
 
 ```{r}
