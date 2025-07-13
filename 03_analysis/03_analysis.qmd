@@ -36,6 +36,7 @@ library(grid)
 TetraData <- data.table::fread("../traits/TetrapodTraits_1.0.0.csv") %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
   select(Scientific.Name, Fos, Ter, Aqu, Arb, Aer, 
+         Verticality, Nocturnality,
          ImputedHabitat, Suborder) 
 ```
 
@@ -83,7 +84,7 @@ rate_omi_amphibia <- Reduce(
 # Tol Rate
 load(
   file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Amphibia",
-            "tolraterate_evolution.RData")
+            "tolrate_evolution.RData")
 )
 rate_tol_amphibia <- Reduce(
   function(x, y) left_join(x, y, by = "specie"),
@@ -309,14 +310,15 @@ df_trait_amphibia_bin <- df_trait_amphibia %>%
 trait_amphibia_log <- df_trait_amphibia_bin %>%
   mutate(
     taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = log(OMI),
-    Tol    = log(Tol+1),
-    taxa_tol   = log(taxa_tol),
-    taxa_omi = log(taxa_omi),
-    Aqu    = as.factor(Aqu),
-    Ter   = as.factor(Ter),
-    Arb     = as.factor(Arb),
-    Fos     = as.factor(Fos)) 
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    taxa_tol   = scale(log(taxa_tol)),
+    taxa_omi = scale(log(taxa_omi)),
+    #Aqu    = as.factor(Aqu),
+    #Ter   = as.factor(Ter),
+    #Arb     = as.factor(Arb),
+    #Fos     = as.factor(Fos),
+    Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_amphibia_log %>%
@@ -331,26 +333,34 @@ trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
 ```
 
 ```{r}
-model_niche_amphibia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
-                           Arb + Fos + Ter + Aqu,
+model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol + Verticality,
                          data = trait_amphibia_log,
                     correlation = corPagel(1,amphibia_phy,
                                            form = ~Scientific.Name))
+summary(model_niche_amphibia)
+
+model_evo_amphibia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
+                         data = trait_amphibia_log,
+                    correlation = corPagel(1,amphibia_phy,
+                                           form = ~Scientific.Name))
+summary(model_evo_amphibia)
 
 # Diagnose model
-amphibia_diagnosis <- plot(model_niche_amphibia)
+amphibia_diagnosis_niche <- plot(model_niche_amphibia)
+amphibia_diagnosis_evo <- plot(model_evo_amphibia)
 
-# AIC(model_niche_amphibia) # 15597 com log
-AIC(df_trait_amphibia)
+# AIC
+AIC(model_niche_amphibia)
+AIC(model_evo_amphibia)
 
-# Statistical model
-summary(model_niche_amphibia)
-R2(model_niche_amphibia)
-
+# Save
 save(model_niche_amphibia,
-     file = "model_niche_amphibia_normalized.RData")
-
-#load("model_niche_amphibia.RData")
+     file = "model_niche_amphibia.RData")
+save(model_evo_amphibia,
+     file = "model_evo_amphibia.RData")
+# R2
+R2(model_niche_amphibia)
+R2(model_evo_amphibia)
 ```
 
 #### 3.2. Squamata
@@ -371,14 +381,15 @@ df_trait_reptilia_bin <- df_trait_reptilia %>%
 trait_reptilia_log <- df_trait_reptilia_bin %>%
   mutate(
     taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = log(OMI),
-    Tol    = log(Tol+1),
-    #taxa_tol   = log(taxa_tol),
-    #taxa_omi = log(taxa_omi),
-    Aqu    = as.integer(Aqu),
-    Ter   = as.integer(Ter),
-    Arb     = as.integer(Arb),
-    Fos     = as.integer(Fos))
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    #taxa_tol   = scale(log(taxa_tol)),
+    #taxa_omi = scale(log(taxa_omi)),
+    #Aqu    = as.factor(Aqu),
+    #Ter   = as.factor(Ter),
+    #Arb     = as.factor(Arb),
+    #Fos     = as.factor(Fos),
+    Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_reptilia_log %>%
@@ -393,19 +404,32 @@ trait_reptilia_normalize <- cbind(trait_reptilia_log %>%
 
 ```{r}
 model_niche_reptilia <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Arb + Fos + Ter + Aqu,
-                         data = trait_reptilia_normalize,
+                           Verticality,
+                         data = trait_reptilia_log,
                     correlation = corPagel(1,reptilia_phy,
                                            form = ~Scientific.Name))
-# Model diagnose
-reptilia_diagnosis <- plot(model_niche_reptilia)
-
-# Statistical model
 summary(model_niche_reptilia)
-R2(model_niche_reptilia)
 
+model_evo_reptilia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
+                           Verticality,
+                         data = trait_reptilia_log,
+                    correlation = corPagel(1,reptilia_phy,
+                                           form = ~Scientific.Name))
+summary(model_evo_reptilia)
+
+# Model diagnose
+reptilia_niche_diagnosis <- plot(model_niche_reptilia)
+reptilia_evo_diagnosis <- plot(model_evo_reptilia)
+
+# Save
 save(model_niche_reptilia,
-     file = "model_niche_reptilia_normalize.RData")
+     file = "model_niche_reptilia.RData")
+save(model_evo_reptilia,
+     file = "model_evo_reptilia.RData")
+
+# R2
+R2(model_niche_reptilia)
+R2(model_evo_reptilia)
 ```
 
 #### 3.3. Birds
@@ -425,14 +449,15 @@ df_trait_birds_bin <- df_trait_birds %>%
 trait_birds_log <- df_trait_birds_bin %>%
   mutate(
     taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = log(OMI),
-    Tol    = log(Tol+1),
-    #taxa_tol   = log(taxa_tol),
-    #taxa_omi = log(taxa_omi),
-    Aqu    = as.integer(Aqu),
-    Ter   = as.integer(Ter),
-    Arb     = as.integer(Arb),
-    Aer     = as.integer(Aer))
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    #taxa_tol   = scale(log(taxa_tol)),
+    #taxa_omi = scale(log(taxa_omi)),
+    #Aqu    = as.factor(Aqu),
+    #Ter   = as.factor(Ter),
+    #Arb     = as.factor(Arb),
+    #Fos     = as.factor(Fos),
+    Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_birds_log %>%
@@ -447,17 +472,33 @@ trait_birds_normalize <- cbind(trait_birds_log %>%
 
 ```{r}
 model_niche_birds <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Arb + Aer + Ter + Aqu,
+                           Verticality,
                          data = trait_birds_normalize,
                     correlation = corPagel(1,birds_phy,
                                            form = ~Scientific.Name))
-
-birds_diagnosis <- plot(model_niche_birds)# plot(resid(model_niche_birds) ~ fitted(model_niche_birds))
 summary(model_niche_birds)
-R2(model_niche_birds)
 
+model_evo_birds <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
+                           Verticality,
+                         data = trait_birds_normalize,
+                    correlation = corPagel(1,birds_phy,
+                                           form = ~Scientific.Name))
+summary(model_evo_birds)
+
+# Plot
+birds_diagnosis_niche <- plot(model_niche_birds)
+birds_diagnosis_evo <- plot(model_evo_birds)
+
+# Save
 save(model_niche_birds,
      file = "model_niche_birds.RData")
+
+save(model_evo_birds,
+     file = "model_evo_birds.RData")
+
+# R2
+R2(model_niche_birds)
+R2(birds_diagnosis_evo)
 ```
 
 #### 3.4. Mammals
@@ -476,15 +517,15 @@ df_trait_mammals_bin <- df_trait_mammals %>%
 trait_mammals_log <- df_trait_mammals_bin %>%
   mutate(
     taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = log(OMI),
-    Tol    = log(Tol+1),
-    #taxa_tol   = log(taxa_tol),
-    #taxa_omi = log(taxa_omi),
-    Aqu    = as.integer(Aqu),
-    Ter   = as.integer(Ter),
-    Arb     = as.integer(Arb),
-    Fos     = as.integer(Fos),
-    Aer = as.integer(Aer))
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    #taxa_tol   = scale(log(taxa_tol)),
+    #taxa_omi = scale(log(taxa_omi)),
+    #Aqu    = as.factor(Aqu),
+    #Ter   = as.factor(Ter),
+    #Arb     = as.factor(Arb),
+    #Fos     = as.factor(Fos),
+    Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
 normalize_variables <- vegan::decostand(trait_mammals_log %>%
@@ -499,18 +540,33 @@ trait_mammals_normalize <- cbind(trait_mammals_log %>%
 
 ```{r}
 model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol + 
-                             Ter + Arb + Fos,
+                             Verticality,
+                         data = trait_mammals_log,
+                    correlation = corPagel(1,mammals_phy,
+                                           form = ~Scientific.Name))
+# Model statistics 
+summary(model_niche_mammals)
+# Diagnose model
+mammals_niche_diagnosis <- plot(model_niche_mammals)
+
+model_evo_mammals <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol + 
+                             Verticality,
                          data = trait_mammals_log,
                     correlation = corPagel(1,mammals_phy,
                                            form = ~Scientific.Name))
 # Diagnose model
-mammals_diagnosis <- plot(model_niche_mammals)
+mammals_evo_diagnosis <- plot(model_evo_mammals)
 # Model statistics 
-summary(model_niche_mammals)
-R2(model_niche_mammals)
-
+summary(model_evo_mammals)
+# Save
 save(model_niche_mammals,
      file = "model_niche_mammals.RData")
+save(model_evo_mammals,
+     file = "model_evo_mammals.RData")
+# R2
+R2(model_niche_mammals)
+R2(model_evo_mammals)
+
 ```
 
 ### 4. PWR
@@ -631,6 +687,8 @@ tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_di
 
 #### 5.0. Theorical models
 
+models_climate
+
 ```{r}
 library(phylopath)
 library(ape)
@@ -654,28 +712,22 @@ models_climate <- define_model_set(
 models_habitat <- define_model_set(
   null = c(),
   # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Fos + Arb + Aqu + Ter),
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
   # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi + Fos + Arb + Aqu + Ter, taxa_omi ~ taxa_tol),
+  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
   # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol + Fos + Arb + Aqu + Ter, taxa_tol ~ taxa_omi),
+  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
   # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Fos + Arb + Aqu + Ter),
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
   # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Fos + Arb + Aqu + Ter),
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
   # Habitat como resposta
   M6 = c(
-  Fos ~ taxa_fenotipica + taxa_omi + taxa_tol,
-  Arb ~ taxa_fenotipica + taxa_omi + taxa_tol,
-  Aqu ~ taxa_fenotipica + taxa_omi + taxa_tol,
-  Ter ~ taxa_fenotipica + taxa_omi + taxa_tol),
+    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
   # Habitat como resposta + interagindo com nicho e taxa morfo
   M7 = c(
-  Fos ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
-  Arb ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
-  Aqu ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi + taxa_tol,
-  Ter ~ taxa_fenotipica + taxa_omi + taxa_tol, taxa_fenotipica ~ taxa_omi +taxa_tol)
-  )
+  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
+    taxa_fenotipica ~ taxa_omi + taxa_tol))
 ```
 
 #### 5.1. Amphibia
@@ -702,7 +754,7 @@ plot(best_amphibia,
   curvature = 0,
   rotation = 0,
   algorith = 'mds')
-?coef_plot
+
 
 avg <- average(result_amphibia, avg_method = "full")
 coef_plot(avg,
@@ -826,6 +878,7 @@ library(tidytree)
 library(ggplot2)
 library(TDbook)
 library(ggtree)
+library(ggnewscale)
 
 # Preparing data
 tip_order <- amphibia_phy$tip.label
@@ -914,13 +967,14 @@ tree_plot_h <- gheatmap(plot_amphibia,
                         offset=38.75, width=.025,
                         colnames_angle=90, colnames=F, color=NULL) +
   scale_fill_identity() +
-  geom_tiplab2(aes(label=HighRankLabel), size=.62, align=F, offset=11) +
+  #geom_tiplab2(aes(label=HighRankLabel), size=.62, align=F, offset=11) +
   theme(legend.position = "right"); tree_plot_h
 
-ggsave(paste0(getwd(),
-              "/figures/FigTreeAmphibia.png"), 
+ggsave(file.path("..", "figures",
+              "FigTreeAmphibia.png"), 
        plot=tree_plot_h, width=100, height=100, units="cm", 
        dpi = 600, limitsize = FALSE)
+getwd()
 
 ```
 
