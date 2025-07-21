@@ -22,10 +22,10 @@ library(BAMMtools) # BAMM package
 #### 0.1. Trait data
 
 ```{r}
-group <- "Amphibia"
+#group <- "Amphibia"
 #group <- "Reptilia"
 #group <- "Aves"
-#group <- "Mammalia"
+group <- "Mammalia"
 ```
 
 ```{r}
@@ -50,12 +50,12 @@ group_community <- group_trait %>%
 Climatic niche
 
 ```{r}
-amphibia_niche <- data.table::fread(
-  file.path("02_metrics", "omi_data", 
-            paste0("niche_", group, "_terrestrial.txt"))
-) %>% rename(Scientific.Name = V1) 
+load(
+  file.path("02_metrics", "omi_data",
+            "niche_df.RData"))
 
-group_trait <- amphibia_niche %>%
+group_trait <- niche_mammals_terrestrial_df %>%
+  mutate(Scientific.Name = rownames(niche_mammals_terrestrial_df)) %>%
   select(Scientific.Name, OMI) %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
   mutate(OMI = log(OMI)) 
@@ -121,7 +121,7 @@ If you already have the phylogeny-sample, run it here!
 ```{r}
 trees <- lapply(file.path(
   "BAMM", group,
-  paste0("Amphibia_Tree_", 1:10, ".tre")),
+  paste0(group, "_Tree_", 1:10, ".tre")),
   read.tree)
 
 sampled_trees <- do.call(c, trees)
@@ -179,6 +179,7 @@ priors_list <- lapply(seq_along(sampled_trees), function(i) {
 }) 
 
 priors <- do.call(rbind, priors_list) 
+save(priors, file = file.path("BAMM", group, "priors.RData"))
 ```
 
 ### 3.0 Generate control file to BAMM analysis
@@ -285,11 +286,12 @@ for(i in 1:length(sampled_trees)){
 ```{r}
 for(i in 1:10){
   mcmcout <- read.table(
-      paste0("mcmc_output/", group, "_Tree_", i, "_mcmc_out.txt", sep = ""),
+      file.path("BAMM", group, "mcmc_output",
+                paste0(group, "_Tree_", i, "_mcmc_out.txt", sep = "")),
                         sep=',', header=T) 
   #tail(mcmcout)
   #plot(mcmcout$logLik ~ mcmcout$generation)
-  burnstart <- floor(0.1 * nrow(mcmcout))
+  burnstart <- floor(0.2 * nrow(mcmcout))
   postburn <- mcmcout[burnstart:nrow(mcmcout),]
   print(coda::effectiveSize(postburn$N_shifts))
   print(coda::effectiveSize(postburn$logLik))
@@ -311,13 +313,15 @@ lista_dfs <- list()
 ```{r}
 for (i in 1:n_arvores) {
   # load tree
-  arvore <- read.tree(paste0(group, "_Tree_", i, ".tre"))
+  arvore <- read.tree(file.path("BAMM", group, 
+    paste0(group, "_Tree_", i, ".tre")))
   
   # load event data
   edata <- getEventData(
     arvore,
     type = "trait",
-    eventdata = paste0("event_data/", group , "_Tree_", i, "_event_data.txt"),
+    eventdata = file.path("BAMM", group,
+      paste0("event_data/", group , "_Tree_", i, "_event_data.txt")),
     burnin = 0.2
   )
   
@@ -338,7 +342,8 @@ for (i in 1:n_arvores) {
 6.3. Obtain event data result
 
 ```{r}
-load(paste0(trait, "rate_evolution.RData")) 
+load(file.path("BAMM", group,
+     paste0(trait, "rate_evolution.RData")))
 
 rate_final <- Reduce(
   function(x, y) left_join(x, y, by = "specie"),

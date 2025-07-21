@@ -6,6 +6,7 @@ editor: visual
 ---
 
 ### 0. Libraries
+
 ```{r}
 library(tidyverse)  # data science handling
 library(data.table) # data science handling
@@ -15,7 +16,9 @@ library(subniche)   # OMI analysis
 ```
 
 ### 1. Load data
+
 ##### 1.1. Distribution data
+
 ```{r}
 # Community data from TetrapodTraits
 vert_assemblages <- data.table::fread("Tetrapod_360.csv",
@@ -29,6 +32,7 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
 ```
 
 ##### 1.2. Climate data
+
 ```{r}
 grid_climate <- read_csv(
   "../shapefile/climate_variables_grid.csv"
@@ -41,7 +45,9 @@ any(duplicated(grid_climate$Cl_I110))
 ```
 
 ##### 1.3. Species list
+
 Herein, we use only species with body size or body mass data observed (non-imputed). For this reason, we use the BAMM trait file for each group. Those files were generated after run *01_extraction.qmd*.
+
 ```{r}
 amphibia_trait <- read.table(file.path(
   "..",
@@ -79,6 +85,7 @@ all_species <- bind_rows(
 ```
 
 ##### 1.4. TetrapodTraits
+
 ```{r}
 TetraData <- data.table::fread(
   file.path("..", "traits", "TetrapodTraits_1.0.0.csv"))
@@ -99,6 +106,7 @@ TetraDataHabitat %>%
 ```
 
 ##### 1.5. Venn Diagram of Major Habitat em TetrapodTraits
+
 ```{r}
 venn_data <- TetraDataHabitat %>%
   count(EcoTer, EcoFresh, EcoMar) %>%
@@ -125,6 +133,7 @@ plot(fit,
 ```
 
 ##### 1.6. Obtain species in TetrapodTraits according major habitat and dependence of climate
+
 ```{r}
 # exclusivamente em ambientes nao-marinhos
 TetraDataTerrestrial <- TetraDataHabitat %>%
@@ -165,8 +174,11 @@ mammalia_list_terrestrial <- TetraDataTerrestrial %>%
 ```
 
 ### 2. Data processing
+
 ##### 2.1. Obtain species matrix with climate data
+
 ###### Amphibia
+
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -215,6 +227,7 @@ nrow(amp_terrestrial_climate) # 11353 grids cells
 ```
 
 ###### Reptilia
+
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -266,6 +279,7 @@ nrow(rep_terrestrial_climate) # 11885 grids cells
 ```
 
 ###### Aves
+
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -314,6 +328,7 @@ nrow(birds_terrestrial_climate) # # 14687 grids cells
 ```
 
 ###### Mammalia
+
 ```{r}
 # Primeira coisa, pegar apenas as comunidades de anfibios
 # Por isso filramos apenas os nomes das especies que aparecem
@@ -362,7 +377,9 @@ nrow(mammals_terrestrial_climate) # 13631 grids cells
 ```
 
 ### 3. Niche metrics
+
 ##### 3.1. VIF climate variables
+
 ```{r}
 # identify collinear variables that should be excluded VIF > 10
 
@@ -392,6 +409,7 @@ terrestrial_climate_mammals <- usdm::exclude(
 ```
 
 ##### 3.2. Outlying Mean Indexes (OMI)
+
 ```{r}
 # Amphibia
 dudi_amphibia_terrestre <- dudi.pca(terrestrial_climate_amp,
@@ -441,49 +459,11 @@ summary(dudi_amphibia_terrestre)
 summary(dudi_reptilia_terrestre)
 summary(dudi_birds_terrestre)
 summary(dudi_mammals_terrestre)
-
-# Zero count
-sum(niche_amphibia_terrestrial_df$Tol == 0, na.rm = TRUE) # 1806
-sum(niche_reptilia_terrestrial_df$Tol == 0, na.rm = TRUE) # 1396
-sum(niche_birds_terrestrial_df$Tol == 0, na.rm = TRUE) # 145
-sum(niche_mammals_terrestrial_df$Tol == 0, na.rm = TRUE) # 285
-
-# Adicionando a constante aos valores de Tol para remover os zeros
-options(scipen = 999)
-View(niche_amphibia_terrestrial_df)
-min(niche_amphibia_terrestrial_df$Tol)
-max(niche_amphibia_terrestrial_df$Tol)
-hist(log(niche_amphibia_terrestrial_df$Tol))
-
-# Descobre o menor valor positivo
-min_pos <- min(niche_amphibia_terrestrial_df$Tol[niche_amphibia_terrestrial_df$Tol > 0])
-# Define a constante proporcional ao menor valor positivo
-constante <- min_pos * 0.1
-# Adiciona a constante a todos os valores
-niche_amphibia_terrestrial_df$Tol_adj <- niche_amphibia_terrestrial_df$Tol + constante
-hist(niche_amphibia_terrestrial_df$Tol_adj)
 ```
 
 ### 4. Save data
-```{r}
-# To BAMM
-# Amphibia
-write.table(niche_amphibia_terrestrial_df,
-            "omi_data/niche_Amphibia_terrestrial.txt", 
-            sep=",", quote=FALSE, row.names = T)
-# Reptilia
-write.table(niche_reptilia_terrestrial_df,
-            "omi_data/niche_Reptilia_terrestrial.txt", 
-            sep=",", quote=FALSE, row.names = T)
-# Birds
-write.table(niche_birds_terrestrial_df,
-            "omi_data/niche_Aves_terrestrial.txt", 
-            sep=",", quote=FALSE, row.names = T)
-# Mammals
-write.table(niche_mammals_terrestrial_df,
-            "omi_data/niche_Mammals_terrestrial.txt", 
-            sep=",", quote=FALSE, row.names = T)
 
+```{r}
 # To load in next step (03_analysis)
 save(
   niche_amphibia_terrestrial_df,

@@ -26,6 +26,16 @@ library(diversitree)
 library(ib)
 # auxiliar na pwr
 library(grid)
+library(phylopath)
+library(ape)
+# plot tree
+library(ggtree)
+library(treeio)
+library(tidytree)
+library(ggplot2)
+library(TDbook)
+library(ggtree)
+library(ggnewscale)
 ```
 
 ### 1. Load data
@@ -51,7 +61,7 @@ load(file.path(
 #### 1.3. Rate trait evolution
 
 ```{r}
-# Amphibia
+###################################### Amphibia ################################
 load(
   file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Amphibia",
             "bodyrate_evolution.RData")
@@ -96,7 +106,8 @@ rate_tol_amphibia <- Reduce(
   ) %>% select(specie, median_rate) %>%
   rename(taxa_tol = median_rate)
 
-# Reptilia
+###################################### Reptilia ################################
+# Morphological evolution
 load(
   file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Reptilia",
             "bodyrate_evolution.RData")
@@ -111,7 +122,38 @@ rate_body_reptilia <- Reduce(
   ) %>% select(specie, median_rate) %>%
   rename(taxa_fenotipica = median_rate)
 
-# Birds
+# OMI Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Reptilia",
+            "OMIrate_evolution.RData")
+)
+rate_omi_reptilia <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_omi = median_rate)
+
+# Tol Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Reptilia",
+            "tolrate_evolution.RData")
+)
+rate_tol_reptilia <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_tol = median_rate)
+
+###################################### Birds ###################################
+# Morphological evolution
 load(
   file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Aves",
             "bodyrate_evolution.RData")
@@ -125,8 +167,36 @@ rate_body_birds <- Reduce(
                         1, median, na.rm = TRUE)
   ) %>% select(specie, median_rate) %>%
   rename(taxa_fenotipica = median_rate)
+# OMI Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Aves",
+            "OMIrate_evolution.RData")
+)
+rate_omi_birds <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_omi = median_rate)
+# Tol Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Aves",
+            "tolrate_evolution.RData")
+)
+rate_tol_birds <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_tol = median_rate)
 
-# Mammals
+#################################### Mammals ###################################
 load(
   file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Mammalia",
             "bodyrate_evolution.RData")
@@ -140,6 +210,35 @@ rate_body_mammals <- Reduce(
                         1, median, na.rm = TRUE)
   ) %>% select(specie, median_rate) %>%
   rename(taxa_fenotipica = median_rate)
+
+# OMI Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Mammalia",
+            "OMIrate_evolution.RData")
+)
+rate_omi_mammals <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_omi = median_rate)
+# Tol Rate
+load(
+  file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution", "Mammalia",
+            "tolrate_evolution.RData")
+)
+rate_tol_mammals <- Reduce(
+  function(x, y) left_join(x, y, by = "specie"),
+  lista_dfs
+) %>%
+  mutate(
+    median_rate = apply(select(., starts_with("median_tree_")),
+                        1, median, na.rm = TRUE)
+  ) %>% select(specie, median_rate) %>%
+  rename(taxa_tol = median_rate)
 ```
 
 #### 1.4. Phylogeny
@@ -215,7 +314,10 @@ rate_niche_reptilia <- left_join(niche_reptilia_df,
           by = c("Scientific.Name" = "specie"))
 
 df_trait_reptilia <- rate_niche_reptilia %>%
-  left_join(TetraData, by = "Scientific.Name") 
+  left_join(TetraData, by = "Scientific.Name") %>%
+  #left_join(rate_omi_birds, by = c("Scientific.Name" = "specie")) %>%
+  #left_join(rate_tol_birds, by = c("Scientific.Name" = "specie")) %>%
+  remove_missing()
 ```
 
 Phylogeny to PGLS
@@ -246,7 +348,10 @@ rate_niche_birds <- left_join(niche_birds_df,
           by = c("Scientific.Name" = "specie"))
 
 df_trait_birds <- rate_niche_birds %>%
-  left_join(TetraData, by = "Scientific.Name") 
+  left_join(TetraData, by = "Scientific.Name") %>%
+  left_join(rate_omi_birds, by = c("Scientific.Name" = "specie")) %>%
+  #left_join(rate_tol_birds, by = c("Scientific.Name" = "specie")) %>%
+  remove_missing()
 ```
 
 Phylogeny to PGLS
@@ -277,7 +382,10 @@ rate_niche_mammals <- left_join(niche_mammals_df,
           by = c("Scientific.Name" = "specie"))
 
 df_trait_mammals <- rate_niche_mammals %>%
-  left_join(TetraData, by = "Scientific.Name") 
+  left_join(TetraData, by = "Scientific.Name") %>%
+  #left_join(rate_omi_mammals, by = c("Scientific.Name" = "specie")) %>%
+  #left_join(rate_tol_mammals, by = c("Scientific.Name" = "specie")) %>%
+  remove_missing()
 ```
 
 Phylogeny to PGLS
@@ -448,11 +556,11 @@ df_trait_birds_bin <- df_trait_birds %>%
 # Os modelos melhoram ao transformar as variaveis
 trait_birds_log <- df_trait_birds_bin %>%
   mutate(
-    taxa_fenotipica = log(taxa_fenotipica),
+    taxa_fenotipica = scale(log(taxa_fenotipica)),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
     #taxa_tol   = scale(log(taxa_tol)),
-    #taxa_omi = scale(log(taxa_omi)),
+    taxa_omi = scale(log(taxa_omi)),
     #Aqu    = as.factor(Aqu),
     #Ter   = as.factor(Ter),
     #Arb     = as.factor(Arb),
@@ -570,7 +678,6 @@ R2(model_evo_mammals)
 ```
 
 ### 4. PWR
-
 #### 4.1. Amphibia
 
 #### 4.2. Reptilia
@@ -686,13 +793,7 @@ tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_di
 ### 5. PhyloPath
 
 #### 5.0. Theorical models
-
-models_climate
-
 ```{r}
-library(phylopath)
-library(ape)
-
 # only rates 
 models_climate <- define_model_set(
   null = c(),
@@ -712,22 +813,22 @@ models_climate <- define_model_set(
 models_habitat <- define_model_set(
   null = c(),
   # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
+  #M1 = c(taxa_fenotipica ~ taxa_omi + Tol + Verticality),
   # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
+ # M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ Tol),
   # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
+  M3 = c(taxa_fenotipica ~ Tol + Verticality, Tol ~ taxa_omi),
   # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
+  M4 = c(taxa_omi ~ taxa_fenotipica + Tol + Verticality),
   # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
+  M5 = c(Tol ~ taxa_fenotipica + taxa_omi + Verticality),
   # Habitat como resposta
   M6 = c(
-    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
+    Verticality ~ taxa_fenotipica + taxa_omi + Tol),
   # Habitat como resposta + interagindo com nicho e taxa morfo
   M7 = c(
-  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
-    taxa_fenotipica ~ taxa_omi + taxa_tol))
+  Verticality ~ taxa_fenotipica + taxa_omi + Tol,
+    taxa_fenotipica ~ taxa_omi + Tol))
 ```
 
 #### 5.1. Amphibia
@@ -771,6 +872,43 @@ best_amphibia <- best(result_amphibia)
 #### 5.2. Reptilia
 
 #### 5.3. Birds
+
+```{r}
+# Amphibia
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+
+result_birds <- phylo_path(models_habitat, 
+                     data = trait_birds_log,
+                     tree = birds_phy,
+                     model = 'lambda')
+
+summary(result_birds)
+
+best_birds <- best(result_birds)
+
+coef_plot(best_birds,
+          error_bar = "se") +
+  ggplot2::coord_flip()
+
+plot(best_birds, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
+
+
+avg <- average(result_birds, avg_method = "full")
+coef_plot(avg,
+          error_bar = "se",
+          order_by = "strength",
+          to = NULL) +
+  ggplot2::coord_flip()
+plot(avg, edge_width = 0.02)
+
+best_birds <- best(result_birds)
+
+```
 
 #### 5.4. Mammals
 
@@ -872,14 +1010,6 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
 #### 6.2. Phylogeny plots
 
 ```{r}
-library(ggtree)
-library(treeio)
-library(tidytree)
-library(ggplot2)
-library(TDbook)
-library(ggtree)
-library(ggnewscale)
-
 # Preparing data
 tip_order <- amphibia_phy$tip.label
 
