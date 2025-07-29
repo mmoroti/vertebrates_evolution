@@ -261,7 +261,7 @@ mammals_phy_full <- read.tree(file.path(
   "Mammalia", "Mammalia_Tree_1.tre"))
 ```
 
-### 2. Join data
+### 2. Preparing data
 
 #### 2.1. Amphibia
 
@@ -297,7 +297,31 @@ amphibia_phy <- picante::prune.sample(amphibia_community,
                               amphibia_phy_full)
 ```
 
-#### 1.2. Squamata
+Transform data
+```{r}
+# Os modelos melhoram ao transformar as variaveis
+trait_amphibia_log <- df_trait_amphibia %>%
+  mutate(
+    taxa_fenotipica = log(taxa_fenotipica),
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    taxa_tol   = scale(log(taxa_tol)),
+    taxa_omi = scale(log(taxa_omi)),
+    Verticality = scale(Verticality^2))
+
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_amphibia_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
+```
+
+#### 2.2. Squamata
 
 ```{r}
 niche_reptilia_df <- niche_reptilia_terrestrial_df %>%
@@ -331,7 +355,30 @@ reptilia_phy <- picante::prune.sample(reptilia_community,
                               reptilia_phy_full)
 ```
 
-#### 1.3. Birds
+Transform data
+```{r}
+# Os modelos melhoram ao transformar as variaveis
+trait_reptilia_log <- df_trait_reptilia %>%
+  mutate(
+    taxa_fenotipica = log(taxa_fenotipica),
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    #taxa_tol   = scale(log(taxa_tol)),
+    taxa_omi = scale(log(taxa_omi)),
+    Verticality = scale(Verticality^2))
+
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_reptilia_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_reptilia_normalize <- cbind(trait_reptilia_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
+```
+
+#### 2.3. Birds
 
 ```{r}
 niche_birds_df <- niche_birds_terrestrial_df %>%
@@ -365,7 +412,30 @@ birds_phy <- picante::prune.sample(birds_community,
                               birds_phy_full)
 ```
 
-#### 1.4. Mammals
+Transform data
+```{r}
+# Os modelos melhoram ao transformar as variaveis
+trait_birds_log <- df_trait_birds %>%
+  mutate(
+    taxa_fenotipica = scale(log(taxa_fenotipica)),
+    OMI    = scale(log(OMI)),
+    Tol    = scale(log(Tol+1)),
+    taxa_tol   = scale(log(taxa_tol)),
+    taxa_omi = scale(log(taxa_omi)),
+    Verticality = scale(Verticality^2))
+
+# Normalizando as preditoras
+normalize_variables <- vegan::decostand(trait_birds_log %>%
+                            select(OMI, Tol), #, taxa_tol
+                          "normalize")
+# Removendo as nao padronizadas e 
+# e normalizando as preditoras
+trait_birds_normalize <- cbind(trait_birds_log %>%
+                               select(-OMI, -Tol),
+                             normalize_variables)
+```
+
+#### 2.4. Mammals
 
 ```{r}
 niche_mammals_df <- niche_mammals_terrestrial_df %>%
@@ -399,47 +469,192 @@ mammals_phy <- picante::prune.sample(mammals_community,
                               mammals_phy_full)
 ```
 
-### 3. PGLS
-
-#### 3.1. Amphibia
-
-```{r}
-# table(df_trait_amphibia$Aer) #0 nao entra
-# binarizando as probabilidades de >0.5 para 1, e < para 0
-df_trait_amphibia_bin <- df_trait_amphibia %>%
-  mutate(across(
-    .cols = c(Fos, Arb, Aqu, Ter),
-    .fns  = ~ as.factor(.x > 0.5)
-  ))
-```
-
+Transform data
 ```{r}
 # Os modelos melhoram ao transformar as variaveis
-trait_amphibia_log <- df_trait_amphibia_bin %>%
+trait_mammals_log <- df_trait_mammals %>%
   mutate(
     taxa_fenotipica = log(taxa_fenotipica),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
-    taxa_tol   = scale(log(taxa_tol)),
-    taxa_omi = scale(log(taxa_omi)),
-    #Aqu    = as.factor(Aqu),
-    #Ter   = as.factor(Ter),
-    #Arb     = as.factor(Arb),
-    #Fos     = as.factor(Fos),
+    #taxa_tol   = scale(log(taxa_tol)),
+    #taxa_omi = scale(log(taxa_omi)),
     Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_amphibia_log %>%
+normalize_variables <- vegan::decostand(trait_mammals_log %>%
                             select(OMI, Tol), #, taxa_tol
                           "normalize")
-
 # Removendo as nao padronizadas e 
 # e normalizando as preditoras
-trait_amphibia_normalize <- cbind(trait_amphibia_log %>%
+trait_mammals_normalize <- cbind(trait_mammals_log %>%
                                select(-OMI, -Tol),
                              normalize_variables)
 ```
 
+
+### 3. PhyloPath
+
+#### 3.0. Theorical models
+
+```{r}
+# only rates 
+models_climate <- define_model_set(
+  null = c(),
+  # nicho climatico afeta evolucao morfologica
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
+  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
+  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
+  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
+  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
+  # evolucao morfologica e tolerancia afetam a evolucao da posicao
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
+  # evolucao morfologica e posicao afetam a evolucao tolerancia
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi)
+)
+
+# climatic niche rates + habitat
+models_habitat <- define_model_set(
+  null = c(),
+  # nicho climatico afeta evolucao morfologica
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
+  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
+  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
+  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
+  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
+  # evolucao morfologica e tolerancia afetam a evolucao da posicao
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
+  # evolucao morfologica e posicao afetam a evolucao tolerancia
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
+  # Habitat como resposta
+  M6 = c(
+    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
+  # Habitat como resposta + interagindo com nicho e taxa morfo
+  M7 = c(
+  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
+    taxa_fenotipica ~ taxa_omi + taxa_tol))
+```
+
+#### 3.1. Amphibia
+
+```{r}
+# Amphibia
+rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
+
+result_amphibia <- phylo_path(models_habitat, 
+                     data = trait_amphibia_log,
+                     tree = amphibia_phy,
+                     model = 'lambda')
+
+summary(result_amphibia)
+
+best_amphibia <- best(result_amphibia)
+coef_plot(best_amphibia,
+          error_bar = "se") +
+  ggplot2::coord_flip()
+
+plot(best_amphibia, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
+
+
+avg <- average(result_amphibia, avg_method = "full")
+coef_plot(avg,
+          error_bar = "se",
+          order_by = "strength",
+          to = NULL) +
+  ggplot2::coord_flip()
+plot(avg, edge_width = 0.02)
+
+best_amphibia <- best(result_amphibia)
+
+```
+
+#### 3.2. Reptilia
+
+#### 3.3. Birds
+```{r}
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+
+result_birds <- phylo_path(models_habitat, 
+                     data = trait_birds_log,
+                     tree = birds_phy,
+                     model = 'lambda')
+
+summary(result_birds)
+
+# Pega o melhor
+best_birds <- best(result_birds)
+
+coef_plot(best_birds,
+          error_bar = "se") +
+  ggplot2::coord_flip()
+
+plot(best_birds, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
+
+# Pega o modelo 'medio' de todos
+avg <- average(result_birds, avg_method = "full")
+coef_plot(avg,
+          error_bar = "se",
+          order_by = "strength",
+          to = NULL) +
+  ggplot2::coord_flip()
+plot(avg, edge_width = 0.02)
+```
+
+#### 3.4. Mammals
+
+```{r}
+# Squamata
+rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
+result_reptilia <- phylo_path(models, 
+                     data = trait_reptilia_log,
+                     tree = reptilia_phy,
+                     model = 'lambda')
+
+# Birds
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+result_birds <- phylo_path(models, 
+                     data = trait_birds_log,
+                     tree = birds_phy,
+                     model = 'lambda')
+
+# Mammals
+rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
+result_mammals <- phylo_path(models, 
+                     data = trait_mammals_log,
+                     tree = mammals_phy,
+                     model = 'lambda')
+
+summary(result_amphibia) # M8
+summary(result_reptilia) # M4
+summary(result_birds) # M5
+summary(result_mammals) # M4
+
+
+best_reptilia <- best(result_reptilia)
+best_birds <- best(result_birds)
+best_mammals <- best(result_mammals)
+
+plot(best_reptilia, edge_width = 1.2)
+plot(best_birds, edge_width = 1.2)
+plot(best_mammals, edge_width = 1.2)
+
+```
+
+
+
+### 4. PGLS
+
+#### 4.1. Amphibia
 ```{r}
 model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol + Verticality,
                          data = trait_amphibia_log,
@@ -471,44 +686,7 @@ R2(model_niche_amphibia)
 R2(model_evo_amphibia)
 ```
 
-#### 3.2. Squamata
-
-```{r}
-# binarizando as probabilidades de >0.5 para 1, e < para 0
-df_trait_reptilia_bin <- df_trait_reptilia %>%
-  mutate(across(
-    .cols = c(Fos, Arb, Aqu, Ter),
-    .fns  = ~ as.integer(.x > 0.5)
-  ))
-```
-
-```{r}
-# table(trait_reptilia_log$Aer) 0 nao entra
-
-# Os modelos melhoram ao transformar as variaveis
-trait_reptilia_log <- df_trait_reptilia_bin %>%
-  mutate(
-    taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = scale(log(OMI)),
-    Tol    = scale(log(Tol+1)),
-    #taxa_tol   = scale(log(taxa_tol)),
-    #taxa_omi = scale(log(taxa_omi)),
-    #Aqu    = as.factor(Aqu),
-    #Ter   = as.factor(Ter),
-    #Arb     = as.factor(Arb),
-    #Fos     = as.factor(Fos),
-    Verticality = scale(Verticality^2))
-
-# Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_reptilia_log %>%
-                            select(OMI, Tol), #, taxa_tol
-                          "normalize")
-# Removendo as nao padronizadas e 
-# e normalizando as preditoras
-trait_reptilia_normalize <- cbind(trait_reptilia_log %>%
-                               select(-OMI, -Tol),
-                             normalize_variables)
-```
+#### 4.2. Squamata
 
 ```{r}
 model_niche_reptilia <- gls(taxa_fenotipica ~ OMI + Tol +
@@ -540,43 +718,7 @@ R2(model_niche_reptilia)
 R2(model_evo_reptilia)
 ```
 
-#### 3.3. Birds
-
-```{r}
-#View(df_trait_birds)
-# binarizando as probabilidades de >0.5 para 1, e < para 0
-df_trait_birds_bin <- df_trait_birds %>%
-  mutate(across(
-    .cols = c(Arb, Aqu, Ter, Aer), # TODO CHECAR
-    .fns  = ~ as.integer(.x > 0.5)
-  ))
-```
-
-```{r}
-# Os modelos melhoram ao transformar as variaveis
-trait_birds_log <- df_trait_birds_bin %>%
-  mutate(
-    taxa_fenotipica = scale(log(taxa_fenotipica)),
-    OMI    = scale(log(OMI)),
-    Tol    = scale(log(Tol+1)),
-    taxa_tol   = scale(log(taxa_tol)),
-    taxa_omi = scale(log(taxa_omi)),
-    #Aqu    = as.factor(Aqu),
-    #Ter   = as.factor(Ter),
-    #Arb     = as.factor(Arb),
-    #Fos     = as.factor(Fos),
-    Verticality = scale(Verticality^2))
-
-# Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_birds_log %>%
-                            select(OMI, Tol), #, taxa_tol
-                          "normalize")
-# Removendo as nao padronizadas e 
-# e normalizando as preditoras
-trait_birds_normalize <- cbind(trait_birds_log %>%
-                               select(-OMI, -Tol),
-                             normalize_variables)
-```
+#### 4.3. Birds
 
 ```{r}
 model_niche_birds <- gls(taxa_fenotipica ~ OMI + Tol +
@@ -614,43 +756,7 @@ R2(model_niche_birds)
 R2(birds_diagnosis_evo)
 ```
 
-#### 3.4. Mammals
-
-```{r}
-# binarizando as probabilidades de >0.5 para 1, e < para 0
-df_trait_mammals_bin <- df_trait_mammals %>%
-  mutate(across(
-    .cols = c(Fos, Arb, Aqu, Ter, Aer), # TODO CHECAR
-    .fns  = ~ as.integer(.x > 0.5)
-  ))
-```
-
-```{r}
-# Os modelos melhoram ao transformar as variaveis
-trait_mammals_log <- df_trait_mammals_bin %>%
-  mutate(
-    taxa_fenotipica = log(taxa_fenotipica),
-    OMI    = scale(log(OMI)),
-    Tol    = scale(log(Tol+1)),
-    #taxa_tol   = scale(log(taxa_tol)),
-    #taxa_omi = scale(log(taxa_omi)),
-    #Aqu    = as.factor(Aqu),
-    #Ter   = as.factor(Ter),
-    #Arb     = as.factor(Arb),
-    #Fos     = as.factor(Fos),
-    Verticality = scale(Verticality^2))
-
-# Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_mammals_log %>%
-                            select(OMI, Tol), #, taxa_tol
-                          "normalize")
-# Removendo as nao padronizadas e 
-# e normalizando as preditoras
-trait_mammals_normalize <- cbind(trait_mammals_log %>%
-                               select(-OMI, -Tol),
-                             normalize_variables)
-```
-
+#### 4.4. Mammals
 ```{r}
 model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol + 
                              Verticality,
@@ -682,15 +788,16 @@ R2(model_evo_mammals)
 
 ```
 
-### 4. PWR
 
-#### 4.1. Amphibia
+### 5. PWR
 
-#### 4.2. Reptilia
+#### 5.1. Amphibia
 
-#### 4.3. Birds
+#### 5.2. Reptilia
 
-#### 4.4. Mammals
+#### 5.3. Birds
+
+#### 5.4. Mammals
 
 ```{r}
 load(
@@ -794,163 +901,6 @@ bandw <- get.opt.bw(log(trait_rate)~Tol+OMI,all_data, wfun="martins", method="su
 bandw#0.06224979
 
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
-```
-
-### 5. PhyloPath
-
-#### 5.0. Theorical models
-
-```{r}
-# only rates 
-models_climate <- define_model_set(
-  null = c(),
-  # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
-  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
-  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
-  # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
-  # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi)
-)
-
-# climatic niche rates + habitat
-models_habitat <- define_model_set(
-  null = c(),
-  # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
-  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
-  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
-  # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
-  # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
-  # Habitat como resposta
-  M6 = c(
-    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
-  # Habitat como resposta + interagindo com nicho e taxa morfo
-  M7 = c(
-  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
-    taxa_fenotipica ~ taxa_omi + taxa_tol))
-```
-
-#### 5.1. Amphibia
-
-```{r}
-# Amphibia
-rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
-
-result_amphibia <- phylo_path(models_habitat, 
-                     data = trait_amphibia_log,
-                     tree = amphibia_phy,
-                     model = 'lambda')
-
-summary(result_amphibia)
-
-best_amphibia <- best(result_amphibia)
-coef_plot(best_amphibia,
-          error_bar = "se") +
-  ggplot2::coord_flip()
-
-plot(best_amphibia, 
-     text_size = 4,
-     edge_width = 1.25,
-  curvature = 0,
-  rotation = 0,
-  algorith = 'mds')
-
-
-avg <- average(result_amphibia, avg_method = "full")
-coef_plot(avg,
-          error_bar = "se",
-          order_by = "strength",
-          to = NULL) +
-  ggplot2::coord_flip()
-plot(avg, edge_width = 0.02)
-
-best_amphibia <- best(result_amphibia)
-
-```
-
-#### 5.2. Reptilia
-
-#### 5.3. Birds
-```{r}
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
-
-result_birds <- phylo_path(models_habitat, 
-                     data = trait_birds_log,
-                     tree = birds_phy,
-                     model = 'lambda')
-
-summary(result_birds)
-
-# Pega o melhor
-best_birds <- best(result_birds)
-
-coef_plot(best_birds,
-          error_bar = "se") +
-  ggplot2::coord_flip()
-
-plot(best_birds, 
-     text_size = 4,
-     edge_width = 1.25,
-  curvature = 0,
-  rotation = 0,
-  algorith = 'mds')
-
-# Pega o modelo 'medio' de todos
-avg <- average(result_birds, avg_method = "full")
-coef_plot(avg,
-          error_bar = "se",
-          order_by = "strength",
-          to = NULL) +
-  ggplot2::coord_flip()
-plot(avg, edge_width = 0.02)
-```
-
-#### 5.4. Mammals
-
-```{r}
-# Squamata
-rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
-result_reptilia <- phylo_path(models, 
-                     data = trait_reptilia_log,
-                     tree = reptilia_phy,
-                     model = 'lambda')
-
-# Birds
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
-result_birds <- phylo_path(models, 
-                     data = trait_birds_log,
-                     tree = birds_phy,
-                     model = 'lambda')
-
-# Mammals
-rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
-result_mammals <- phylo_path(models, 
-                     data = trait_mammals_log,
-                     tree = mammals_phy,
-                     model = 'lambda')
-
-summary(result_amphibia) # M8
-summary(result_reptilia) # M4
-summary(result_birds) # M5
-summary(result_mammals) # M4
-
-
-best_reptilia <- best(result_reptilia)
-best_birds <- best(result_birds)
-best_mammals <- best(result_mammals)
-
-plot(best_reptilia, edge_width = 1.2)
-plot(best_birds, edge_width = 1.2)
-plot(best_mammals, edge_width = 1.2)
-
 ```
 
 ### 6.0. Plots
