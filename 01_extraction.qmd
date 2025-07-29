@@ -54,18 +54,25 @@ load(
   file.path("02_metrics", "omi_data",
             "niche_df.RData"))
 
+# Para remover os 0, adicionar uma constante no Tol
+# menor valor positivo de Tol
+min_pos <- min(
+  niche_mammals_terrestrial_df$Tol[niche_mammals_terrestrial_df$Tol > 0])
+constante <- min_pos * 0.1 # prop ao menor valor positivo
+
 group_trait <- niche_mammals_terrestrial_df %>%
   mutate(Scientific.Name = rownames(niche_mammals_terrestrial_df)) %>%
   select(Scientific.Name, OMI) %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
   mutate(OMI = log(OMI)) 
+  #mutate(Tol = log(Tol+constante))
 
 group_community <- group_trait %>%
   pivot_wider(names_from = Scientific.Name, values_from = OMI)
 ```
 
 #### 0.2. Phylogenetic data
-
+If you don't have any phylogeny tree, run here:
 ```{r}
 tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
@@ -189,7 +196,7 @@ generateControlFile(file = file.path("BAMM", group, "/", paste0("controlfile_", 
                     type = 'trait', params = list(
                       treefile = 'tree.new',
                       traitfile= paste0(group, "_niche_position.txt"),
-                      numberOfGenerations = '350000000',
+                      numberOfGenerations = '100000000',
                       overwrite = '1',
                       #betaShiftPrior = as.numeric(priors['betaShiftPrior']),
                       #betaInitPrior = 0.1,
@@ -197,7 +204,7 @@ generateControlFile(file = file.path("BAMM", group, "/", paste0("controlfile_", 
                       expectedNumberOfShifts = 50, # > 5000 tips
                       mcmcOutfile = "mcmc_out.txt",
                       eventDataOutfile = "event_data.txt",
-                      eventDataWriteFreq = '100000',
+                      eventDataWriteFreq = '500000',
                       betaIsTimeVariablePrior = 0,
                       deltaT = 0.01,
                       numberOfChains = 4))
@@ -220,7 +227,7 @@ setwd(file.path("BAMM", group))
 4.2. Trait evolution rate
 
 ```{r}
-for(i in 1:length(sampled_trees)){
+for(i in 2:length(sampled_trees)){
   
   # Create a temporal copy of the divcontrol file
   tmp.divcontrol <- divcontrol

@@ -350,7 +350,7 @@ rate_niche_birds <- left_join(niche_birds_df,
 df_trait_birds <- rate_niche_birds %>%
   left_join(TetraData, by = "Scientific.Name") %>%
   left_join(rate_omi_birds, by = c("Scientific.Name" = "specie")) %>%
-  #left_join(rate_tol_birds, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_tol_birds, by = c("Scientific.Name" = "specie")) %>%
   remove_missing()
 ```
 
@@ -559,7 +559,7 @@ trait_birds_log <- df_trait_birds_bin %>%
     taxa_fenotipica = scale(log(taxa_fenotipica)),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
-    #taxa_tol   = scale(log(taxa_tol)),
+    taxa_tol   = scale(log(taxa_tol)),
     taxa_omi = scale(log(taxa_omi)),
     #Aqu    = as.factor(Aqu),
     #Ter   = as.factor(Ter),
@@ -592,6 +592,11 @@ model_evo_birds <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
                     correlation = corPagel(1,birds_phy,
                                            form = ~Scientific.Name))
 summary(model_evo_birds)
+
+model_evo_birds_2 <- gls(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality,
+                         data = trait_birds_log,
+                    correlation = corPagel(1, birds_phy,
+                                           form = ~Scientific.Name))
 
 # Plot
 birds_diagnosis_niche <- plot(model_niche_birds)
@@ -678,6 +683,7 @@ R2(model_evo_mammals)
 ```
 
 ### 4. PWR
+
 #### 4.1. Amphibia
 
 #### 4.2. Reptilia
@@ -793,6 +799,7 @@ tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_di
 ### 5. PhyloPath
 
 #### 5.0. Theorical models
+
 ```{r}
 # only rates 
 models_climate <- define_model_set(
@@ -813,22 +820,22 @@ models_climate <- define_model_set(
 models_habitat <- define_model_set(
   null = c(),
   # nicho climatico afeta evolucao morfologica
-  #M1 = c(taxa_fenotipica ~ taxa_omi + Tol + Verticality),
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
   # evolucao da posicao afeta evolucao morfologica, omi depende do tol
- # M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ Tol),
+  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
   # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ Tol + Verticality, Tol ~ taxa_omi),
+  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
   # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + Tol + Verticality),
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
   # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(Tol ~ taxa_fenotipica + taxa_omi + Verticality),
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
   # Habitat como resposta
   M6 = c(
-    Verticality ~ taxa_fenotipica + taxa_omi + Tol),
+    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
   # Habitat como resposta + interagindo com nicho e taxa morfo
   M7 = c(
-  Verticality ~ taxa_fenotipica + taxa_omi + Tol,
-    taxa_fenotipica ~ taxa_omi + Tol))
+  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
+    taxa_fenotipica ~ taxa_omi + taxa_tol))
 ```
 
 #### 5.1. Amphibia
@@ -872,9 +879,7 @@ best_amphibia <- best(result_amphibia)
 #### 5.2. Reptilia
 
 #### 5.3. Birds
-
 ```{r}
-# Amphibia
 rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
 
 result_birds <- phylo_path(models_habitat, 
@@ -884,6 +889,7 @@ result_birds <- phylo_path(models_habitat,
 
 summary(result_birds)
 
+# Pega o melhor
 best_birds <- best(result_birds)
 
 coef_plot(best_birds,
@@ -897,7 +903,7 @@ plot(best_birds,
   rotation = 0,
   algorith = 'mds')
 
-
+# Pega o modelo 'medio' de todos
 avg <- average(result_birds, avg_method = "full")
 coef_plot(avg,
           error_bar = "se",
@@ -905,9 +911,6 @@ coef_plot(avg,
           to = NULL) +
   ggplot2::coord_flip()
 plot(avg, edge_width = 0.02)
-
-best_birds <- best(result_birds)
-
 ```
 
 #### 5.4. Mammals
@@ -1008,188 +1011,131 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
 ```
 
 #### 6.2. Phylogeny plots
-
 ```{r}
-# Preparing data
-tip_order <- amphibia_phy$tip.label
+phy <- birds_phy # define a filogenia
+trait <- trait_birds_log # define o dataframe com os dados 
+group <- "aves" # save figure name
 
-trait_amphibia_log_ordered <- trait_amphibia_log[
-  match(tip_order, trait_amphibia_log$Scientific.Name), ] %>%
-  left_join(TetraData[,c(1,8)], by = "Scientific.Name") %>%
+# Preparing data
+tip_order <- phy$tip.label
+
+trait_log_ordered <- trait[
+  match(tip_order, trait$Scientific.Name), ] %>%
+  #left_join(TetraData[,c("Scientific.Name","Suborder")], by = "Scientific.Name") %>%
   mutate(Suborder = as.factor(Suborder))
 
-rownames(trait_amphibia_log_ordered) <- amphibia_phy$tip.label
-
-rate_amphibia <- trait_amphibia_log_ordered %>%
+rownames(trait_log_ordered) <- phy$tip.label
+rate <- trait_log_ordered %>%
   select(taxa_omi, taxa_tol)
 
 ## load `tree_anole` and `df_svl` from 'TDbook'
-svl <- as.matrix(trait_amphibia_log_ordered[4])[,1]
-fit <- phytools::fastAnc(amphibia_phy, svl, vars=TRUE, CI=TRUE)
+svl <- as.matrix(trait_log_ordered["taxa_fenotipica"])[,1]
+fit <- phytools::fastAnc(phy, svl, vars=TRUE, CI=TRUE)
 
-td <- data.frame(node = nodeid(amphibia_phy, names(svl)),
-                 trait = svl)
-nd <- data.frame(node = names(fit$ace), trait = fit$ace)
+td <- data.frame(node = nodeid(phy,
+                               names(svl)),
+                               trait = svl)
+nd <- data.frame(node = names(fit$ace),
+                 trait = fit$ace)
+
 d <- rbind(td, nd)
 d$node <- as.numeric(d$node)
-
-tree <- full_join(amphibia_phy, d, by = 'node')
+tree <- full_join(phy, d, by = 'node')
 
 # adicionar tip labels
 # Get the order of visualization of the tip.labels (not the order of tip.labels):
-d = fortify(amphibia_phy)
+d = fortify(phy)
 d = subset(d, isTip)
 tree_tiporder<-with(d, label[order(y, decreasing=T)])
-#FamilyData<-trait_amphibia_log_ordered[tree_tiporder,] # reorder rows to match the phylogeny tree_tiporder
+
+#FamilyData<-trait_log_ordered[tree_tiporder,] # reorder rows to match the phylogeny tree_tiporder
 
 # Get the suborder names that will appear in the outer band:
-levels(trait_amphibia_log_ordered$Suborder) # reorder levels to match tiplabels
-trait_amphibia_log_ordered$Suborder<-factor(
-  trait_amphibia_log_ordered$Suborder,
-  levels = unique(trait_amphibia_log_ordered$Suborder))
-trait_amphibia_log_ordered$HighRankLabel<-NA
+levels(trait_log_ordered$Suborder) # reorder levels to match tiplabels
+trait_log_ordered$Suborder<-factor(
+  trait_log_ordered$Suborder,
+  levels = unique(trait_log_ordered$Suborder))
 
-for(i in 1:nlevels(trait_amphibia_log_ordered$Suborder)){
-  selected_row<-which(trait_amphibia_log_ordered$Suborder==levels(trait_amphibia_log_ordered$Suborder)[i])
+trait_log_ordered$HighRankLabel<-NA
+
+for(i in 1:nlevels(trait_log_ordered$Suborder)){
+  selected_row<-which(trait_log_ordered$Suborder==levels(trait_log_ordered$Suborder)[i])
   if(length(selected_row)<=2){
-    trait_amphibia_log_ordered$HighRankLabel[selected_row[1]]<-paste(trait_amphibia_log_ordered$Suborder[selected_row[1]])
+    trait_log_ordered$HighRankLabel[selected_row[1]]<-paste(trait_log_ordered$Suborder[selected_row[1]])
   } else {
     midrow<-(median(selected_row))
-    trait_amphibia_log_ordered$HighRankLabel[midrow]<-paste(trait_amphibia_log_ordered$Suborder[midrow])
+    trait_log_ordered$HighRankLabel[midrow]<-paste(trait_log_ordered$Suborder[midrow])
   }
 }
 
 # Create a categorical variable to represent the colour of the families in a outer band:
-trait_amphibia_log_ordered$ColorTaxa<-trait_amphibia_log_ordered$Suborder
-unique_levels<-unique(trait_amphibia_log_ordered$ColorTaxa)
-trait_amphibia_log_ordered$ColorTaxa<-factor(trait_amphibia_log_ordered$ColorTaxa, levels=unique_levels)
+trait_log_ordered$ColorTaxa<-trait_log_ordered$Suborder
+unique_levels<-unique(trait_log_ordered$ColorTaxa)
+trait_log_ordered$ColorTaxa<-factor(trait_log_ordered$ColorTaxa, levels=unique_levels)
 is.even <- function(x) x %% 2 == 0
-trait_amphibia_log_ordered$ColorTaxa<-as.character(trait_amphibia_log_ordered$ColorTaxa)
-for(i in 1:nlevels(trait_amphibia_log_ordered$Suborder)){
+trait_log_ordered$ColorTaxa<-as.character(trait_log_ordered$ColorTaxa)
+
+for(i in 1:nlevels(trait_log_ordered$Suborder)){
   # Detect if the row i had its level already replaced  
-  if(length(which(trait_amphibia_log_ordered$ColorTaxa==unique_levels[i]))>=1){
-    rows_id<-which(trait_amphibia_log_ordered$ColorTaxa==unique_levels[i])
-    if(is.even(i)==TRUE){ trait_amphibia_log_ordered[rows_id, ncol(trait_amphibia_log_ordered)]<-rep("A", length(rows_id)) }
-    else { trait_amphibia_log_ordered[rows_id, ncol(trait_amphibia_log_ordered)]<-rep("B", length(rows_id)) }
+  if(length(which(trait_log_ordered$ColorTaxa==unique_levels[i]))>=1){
+    rows_id<-which(trait_log_ordered$ColorTaxa==unique_levels[i])
+    if(is.even(i)==TRUE){ trait_log_ordered[rows_id, ncol(trait_log_ordered)]<-rep("A", length(rows_id)) }
+    else { trait_log_ordered[rows_id, ncol(trait_log_ordered)]<-rep("B", length(rows_id)) }
   }
 }
-trait_amphibia_log_ordered$HexColors<-NA
-trait_amphibia_log_ordered[which(trait_amphibia_log_ordered$ColorTaxa=="A"),]$HexColors<-"gray20"
-trait_amphibia_log_ordered[which(trait_amphibia_log_ordered$ColorTaxa=="B"),]$HexColors<-"gray80"
-trait_amphibia_log_ordered<-trait_amphibia_log_ordered[amphibia_phy$tip.label,]
+trait_log_ordered$HexColors<-NA
+
+trait_log_ordered[which(trait_log_ordered$ColorTaxa=="A"),]$HexColors<-"gray20"
+trait_log_ordered[which(trait_log_ordered$ColorTaxa=="B"),]$HexColors<-"gray80"
+
+trait_log_ordered<-trait_log_ordered[phy$tip.label,]
 
 # Plot tree with trait rate 
 tree_plot <- ggtree(tree, layout = "circular", ladderize = FALSE, size = 1.0) +
   geom_tree(aes(color=trait), continuous = 'color', size = 2) +
-  scale_color_viridis_c(option = "viridis"); tree_plot  # Escala contínua
+  scale_color_viridis_c(option = "viridis")  # Escala contínua
 
 # plot taxas heatmap
-plot_amphibia <- gheatmap(tree_plot, 
-                          rate_amphibia, # only rate of climatic niche
+plot <- gheatmap(tree_plot, 
+                          rate, # only rate of climatic niche
                           width= 0.1,
                           colnames = FALSE) +
   scale_fill_viridis_c(name="continuous\nvalue", alpha = 1)
+# Pegue apenas as pontas da árvore
+tips_only <- plot$data %>% filter(isTip)
+# Adicione o HighRankLabel correto para cada ponta
+tips_only$HighRankLabel <- trait_log_ordered$HighRankLabel[
+  match(tips_only$label, rownames(trait_log_ordered))]
+
 # adiciona nova camada
-plot_amphibia <- plot_amphibia + new_scale_fill()
-# plot heatmap dos clados
-tree_plot_h <- gheatmap(plot_amphibia,
-                        trait_amphibia_log_ordered[, "HexColors", drop=F],
-                        offset=38.75, width=.025,
-                        colnames_angle=90, colnames=F, color=NULL) +
-  scale_fill_identity() +
-  #geom_tiplab2(aes(label=HighRankLabel), size=.62, align=F, offset=11) +
-  theme(legend.position = "right"); tree_plot_h
+plot <- plot + new_scale_fill()
+  
+tree_plot_h <- gheatmap(
+    plot,
+    trait_log_ordered[, "HexColors", drop = FALSE],
+    offset = 13,
+    width = 0.025,
+    colnames_angle = 90,
+    colnames = FALSE,
+    color = NULL
+  ) +
+    scale_fill_identity() +
+  geom_tiplab2(
+    data = tips_only,
+    aes(label = HighRankLabel),
+    size = 10.62,
+    align = FALSE,
+    offset = 17
+  ) +
+    theme(legend.position = "right")
 
 ggsave(file.path("..", "figures",
-              "FigTreeAmphibia.png"), 
+                 paste0("FigTree", group, ".png")), 
        plot=tree_plot_h, width=100, height=100, units="cm", 
        dpi = 600, limitsize = FALSE)
-getwd()
-
-```
-
-```{r}
-# plot phy-climate niche
-# frogs
-anura_phy_pgls
-
-rownames(amphibia_dataset_full) <- amphibia_dataset_full[,1]
-
-amphibia_dataset_full <- amphibia_dataset_full[,-1]
-amphibia_dataset_full <- amphibia_dataset_full[,-3]
-
-col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
-amphibia_dataset_full_v2 <- amphibia_dataset_full[, col_order]
-
-phy_niche_anura <- phylo4d(anura_phy_pgls, amphibia_dataset_full_v2)
-
-# plot
-gridplot(phy_niche_anura,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
-
-barplot(phy_niche_anura, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
-        tree.type = "fan", bar.col = "grey35")
-
-# squamata
-squamata_phy_pgls
-
-rownames(squamata_dataset_full) <- squamata_dataset_full[,1]
-
-squamata_dataset_full <- squamata_dataset_full[,-1]
-squamata_dataset_full <- squamata_dataset_full[,-3]
-
-col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
-squamata_dataset_full_v2 <- squamata_dataset_full[, col_order]
-
-phy_niche_squamata <- phylo4d(squamata_phy_pgls, squamata_dataset_full_v2)
-
-# plot
-gridplot(phy_niche_squamata,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
-
-barplot(phy_niche_squamata, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
-        tree.type = "fan", bar.col = "grey35")
-
-# birds
-birds_phy_pgls
-
-rownames(birds_dataset_full) <- birds_dataset_full[,1]
-
-birds_dataset_full <- birds_dataset_full[,-1]
-birds_dataset_full <- birds_dataset_full[,-3]
-
-col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
-birds_dataset_full_v2 <- birds_dataset_full[, col_order]
-
-phy_niche_birds <- phylo4d(birds_phy_pgls, birds_dataset_full_v2)
-
-# plot
-gridplot(phy_niche_birds,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
-
-barplot(phy_niche_anura, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
-        tree.type = "fan", bar.col = "grey35")
-
-
-# mammals
-mammals_phy_pgls
-
-rownames(mammals_dataset_full) <- mammals_dataset_full[,1]
-mammals_dataset_full <- mammals_dataset_full[,-1]
-mammals_dataset_full <- mammals_dataset_full[,-3]
-
-col_order <- c("OMI", "OMI_past", "Tol","Tol_past")
-my_data2 <- mammals_dataset_full[, col_order]
-
-phy_niche <- phylo4d(mammals_phy_pgls, my_data2)
-
-# plot
-gridplot(phy_niche,show.tip = TRUE,tip.cex = 0.9, tree.type = "fan")
-
-barplot(phy_niche, trait.bg.col = c("#F6CED8", "#F6CED8", "#CEF1CE", "#CEF9CE"), 
-        tree.type = "fan", bar.col = "grey35")
-gridplot(phy_niche)
 ```
 
 #### 6.3. Model plots
-
 ```{r}
 load(
   "model_niche_amphibia_log.RData"
