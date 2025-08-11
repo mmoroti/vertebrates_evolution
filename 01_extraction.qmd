@@ -72,7 +72,9 @@ group_community <- group_trait %>%
 ```
 
 #### 0.2. Phylogenetic data
+
 If you don't have any phylogeny tree, run here:
+
 ```{r}
 tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
@@ -310,7 +312,7 @@ for(i in 1:10){
 6.1. Set how many readings and trait type
 
 ```{r}
-trait <- "body"
+trait <- "OMI"
 n_arvores <- 10
 lista_dfs <- list()
 ```
@@ -318,7 +320,7 @@ lista_dfs <- list()
 6.2. Run event data read
 
 ```{r}
-for (i in 1:n_arvores) {
+for (i in 7:n_arvores) {
   # load tree
   arvore <- read.tree(file.path("BAMM", group, 
     paste0(group, "_Tree_", i, ".tre")))
@@ -342,7 +344,8 @@ for (i in 1:n_arvores) {
     stringsAsFactors = FALSE
   )
   names(lista_dfs[[i]])[2] <- paste0("median_tree_", i)
-  save(lista_dfs, file = paste0(trait, "rate_evolution.RData"))
+  save(lista_dfs, file = paste0("BAMM/", group,"/",
+                                trait, "rate_evolution.RData"))
 }
 ```
 

@@ -302,7 +302,7 @@ Transform data
 # Os modelos melhoram ao transformar as variaveis
 trait_amphibia_log <- df_trait_amphibia %>%
   mutate(
-    taxa_fenotipica = log(taxa_fenotipica),
+    taxa_fenotipica = scale(log(taxa_fenotipica)),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
     taxa_tol   = scale(log(taxa_tol)),
@@ -339,8 +339,8 @@ rate_niche_reptilia <- left_join(niche_reptilia_df,
 
 df_trait_reptilia <- rate_niche_reptilia %>%
   left_join(TetraData, by = "Scientific.Name") %>%
-  #left_join(rate_omi_birds, by = c("Scientific.Name" = "specie")) %>%
-  #left_join(rate_tol_birds, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_omi_reptilia, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_tol_reptilia, by = c("Scientific.Name" = "specie")) %>%
   remove_missing()
 ```
 
@@ -363,7 +363,7 @@ trait_reptilia_log <- df_trait_reptilia %>%
     taxa_fenotipica = log(taxa_fenotipica),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
-    #taxa_tol   = scale(log(taxa_tol)),
+    taxa_tol   = scale(log(taxa_tol)),
     taxa_omi = scale(log(taxa_omi)),
     Verticality = scale(Verticality^2))
 
@@ -453,8 +453,8 @@ rate_niche_mammals <- left_join(niche_mammals_df,
 
 df_trait_mammals <- rate_niche_mammals %>%
   left_join(TetraData, by = "Scientific.Name") %>%
-  #left_join(rate_omi_mammals, by = c("Scientific.Name" = "specie")) %>%
-  #left_join(rate_tol_mammals, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_omi_mammals, by = c("Scientific.Name" = "specie")) %>%
+  left_join(rate_tol_mammals, by = c("Scientific.Name" = "specie")) %>%
   remove_missing()
 ```
 
@@ -477,8 +477,8 @@ trait_mammals_log <- df_trait_mammals %>%
     taxa_fenotipica = log(taxa_fenotipica),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
-    #taxa_tol   = scale(log(taxa_tol)),
-    #taxa_omi = scale(log(taxa_omi)),
+    taxa_tol   = scale(log(taxa_tol)),
+    taxa_omi = scale(log(taxa_omi)),
     Verticality = scale(Verticality^2))
 
 # Normalizando as preditoras
@@ -490,14 +490,25 @@ normalize_variables <- vegan::decostand(trait_mammals_log %>%
 trait_mammals_normalize <- cbind(trait_mammals_log %>%
                                select(-OMI, -Tol),
                              normalize_variables)
-```
 
+trait_mammals_log <- trait_mammals_normalize
+```
 
 ### 3. PhyloPath
 
 #### 3.0. Theorical models
 
 ```{r}
+models_simple <- define_model_set(
+  null = c(),
+  # nicho climatico afeta evolucao morfologica
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
+  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
+  M2 = c(taxa_omi ~ taxa_tol),
+  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
+  M3 = c(taxa_tol ~ taxa_omi)
+)
+
 # only rates 
 models_climate <- define_model_set(
   null = c(),
@@ -533,25 +544,44 @@ models_habitat <- define_model_set(
   M7 = c(
   Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
     taxa_fenotipica ~ taxa_omi + taxa_tol))
+
+models_all <- define_model_set(
+  # Modelos sem habitat
+  null = c(),
+  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
+  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
+  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
+  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
+  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi),
+  # Modelos com habitat
+  M6 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
+  M7 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
+  M8 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
+  M9 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
+  M10 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
+  M11 = c(Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
+  M12 = c(
+    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
+    taxa_fenotipica ~ taxa_omi + taxa_tol
+  )
+)
+plot_model_set(models_all)
 ```
 
 #### 3.1. Amphibia
-
 ```{r}
-# Amphibia
+# Only climatic niche
 rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
 
-result_amphibia <- phylo_path(models_habitat, 
+result_amphibia <- phylo_path(models_climate, # change models 
                      data = trait_amphibia_log,
                      tree = amphibia_phy,
                      model = 'lambda')
+s <- summary(result_amphibia)
+plot(s)
 
-summary(result_amphibia)
-
+# best model
 best_amphibia <- best(result_amphibia)
-coef_plot(best_amphibia,
-          error_bar = "se") +
-  ggplot2::coord_flip()
 
 plot(best_amphibia, 
      text_size = 4,
@@ -560,94 +590,101 @@ plot(best_amphibia,
   rotation = 0,
   algorith = 'mds')
 
-
-avg <- average(result_amphibia, avg_method = "full")
-coef_plot(avg,
-          error_bar = "se",
-          order_by = "strength",
-          to = NULL) +
+coef_plot(best_amphibia,
+          error_bar = "se") +
   ggplot2::coord_flip()
-plot(avg, edge_width = 0.02)
-
-best_amphibia <- best(result_amphibia)
-
 ```
 
-#### 3.2. Reptilia
-
-#### 3.3. Birds
+#### 3.2. Squamata
 ```{r}
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
 
-result_birds <- phylo_path(models_habitat, 
-                     data = trait_birds_log,
-                     tree = birds_phy,
+# Only climate
+result_reptilia <- phylo_path(models_simple, 
+                     data = trait_reptilia_log,
+                     tree = reptilia_phy,
                      model = 'lambda')
+summary(result_reptilia)
+s <- summary(result_reptilia)
+plot(s)
 
-summary(result_birds)
+result_reptilia$d_sep$M1
+
+# Diagnosticar caminhos ausentes no melhor modelo
+test_dsep(result_reptilia, model = "M7") 
 
 # Pega o melhor
-best_birds <- best(result_birds)
-
-coef_plot(best_birds,
+best_reptilia <- best(result_reptilia)
+coef_plot(best_reptilia,
           error_bar = "se") +
   ggplot2::coord_flip()
 
-plot(best_birds, 
+plot(best_reptilia, 
      text_size = 4,
      edge_width = 1.25,
   curvature = 0,
   rotation = 0,
   algorith = 'mds')
 
-# Pega o modelo 'medio' de todos
-avg <- average(result_birds, avg_method = "full")
-coef_plot(avg,
-          error_bar = "se",
-          order_by = "strength",
-          to = NULL) +
+```
+
+#### 3.3. Birds
+```{r}
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+
+# Only climate
+result_birds <- phylo_path(models_all, 
+                     data = trait_birds_log,
+                     tree = birds_phy,
+                     model = 'lambda')
+
+summary(result_birds)
+s <- summary(result_birds)
+plot(s)
+
+# Pega o melhor
+best_result_birds <- best(result_birds)
+
+coef_plot(best_result_birds,
+          error_bar = "se") +
   ggplot2::coord_flip()
-plot(avg, edge_width = 0.02)
+
+plot(best_result_birds, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
 ```
 
 #### 3.4. Mammals
 
 ```{r}
-# Squamata
-rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
-result_reptilia <- phylo_path(models, 
-                     data = trait_reptilia_log,
-                     tree = reptilia_phy,
-                     model = 'lambda')
-
-# Birds
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
-result_birds <- phylo_path(models, 
-                     data = trait_birds_log,
-                     tree = birds_phy,
-                     model = 'lambda')
-
-# Mammals
 rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
-result_mammals <- phylo_path(models, 
+
+# Only climate
+result_mammals <- phylo_path(models_all, 
                      data = trait_mammals_log,
                      tree = mammals_phy,
                      model = 'lambda')
 
-summary(result_amphibia) # M8
-summary(result_reptilia) # M4
-summary(result_birds) # M5
-summary(result_mammals) # M4
+summary(result_mammals)
 
-
-best_reptilia <- best(result_reptilia)
-best_birds <- best(result_birds)
+# Pega o melhor
 best_mammals <- best(result_mammals)
+s <- summary(result_mammals)
+plot(s)
 
-plot(best_reptilia, edge_width = 1.2)
-plot(best_birds, edge_width = 1.2)
-plot(best_mammals, edge_width = 1.2)
+coef_plot(best_mammals,
+          error_bar = "se") +
+  ggplot2::coord_flip()
 
+plot(best_mammals, 
+     text_size = 4,
+     edge_width = 1.25,
+  curvature = 0,
+  rotation = 0,
+  algorith = 'mds')
 ```
 
 
