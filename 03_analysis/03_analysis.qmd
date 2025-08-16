@@ -499,198 +499,163 @@ trait_mammals_log <- trait_mammals_normalize
 #### 3.0. Theorical models
 
 ```{r}
-models_simple <- define_model_set(
+models_dir <- define_model_set(
   null = c(),
-  # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
-  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_omi ~ taxa_tol),
-  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_tol ~ taxa_omi)
-)
-
-# only rates 
-models_climate <- define_model_set(
-  null = c(),
-  # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
-  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
-  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
-  # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
-  # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi)
-)
-
-# climatic niche rates + habitat
-models_habitat <- define_model_set(
-  null = c(),
-  # nicho climatico afeta evolucao morfologica
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
-  # evolucao da posicao afeta evolucao morfologica, omi depende do tol
-  M2 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
-  # evolucao da tolerancia afeta evolucao morfologica, tol depende do omi
-  M3 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
-  # evolucao morfologica e tolerancia afetam a evolucao da posicao
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
-  # evolucao morfologica e posicao afetam a evolucao tolerancia
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
-  # Habitat como resposta
-  M6 = c(
-    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
-  # Habitat como resposta + interagindo com nicho e taxa morfo
-  M7 = c(
-  Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
-    taxa_fenotipica ~ taxa_omi + taxa_tol))
-
-models_all <- define_model_set(
-  # Modelos sem habitat
-  null = c(),
-  M1 = c(taxa_fenotipica ~ taxa_omi + taxa_tol),
-  M2 = c(taxa_fenotipica ~ taxa_omi, taxa_omi ~ taxa_tol),
-  M3 = c(taxa_fenotipica ~ taxa_tol, taxa_tol ~ taxa_omi),
-  M4 = c(taxa_omi ~ taxa_fenotipica + taxa_tol),
-  M5 = c(taxa_tol ~ taxa_fenotipica + taxa_omi),
-  # Modelos com habitat
-  M6 = c(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality),
-  M7 = c(taxa_fenotipica ~ taxa_omi + Verticality, taxa_omi ~ taxa_tol),
-  M8 = c(taxa_fenotipica ~ taxa_tol + Verticality, taxa_tol ~ taxa_omi),
-  M9 = c(taxa_omi ~ taxa_fenotipica + taxa_tol + Verticality),
-  M10 = c(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality),
-  M11 = c(Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol),
-  M12 = c(
-    Verticality ~ taxa_fenotipica + taxa_omi + taxa_tol,
-    taxa_fenotipica ~ taxa_omi + taxa_tol
+  A1 = c(
+    taxa_fenotipica ~ taxa_omi + Verticality,
+    taxa_omi        ~ taxa_tol + Verticality
+  ),
+  A2 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_omi + Verticality
+  ),
+  B1 = c(
+    taxa_omi        ~ taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ taxa_tol + Verticality
+  ),
+  B2 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_fenotipica + Verticality
+  ),
+  C1 = c(
+    taxa_tol        ~ taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ taxa_omi + Verticality
+  ),
+  C2 = c(
+    taxa_tol        ~ taxa_fenotipica + taxa_omi + Verticality,
+    taxa_omi        ~ taxa_fenotipica + Verticality
+  ),
+  H = c(
+    taxa_fenotipica ~ Verticality,
+    taxa_omi        ~ Verticality,
+    taxa_tol        ~ Verticality
   )
 )
-plot_model_set(models_all)
+
+# adjust in names
+rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
+rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
+
+# testar correlacao entre variaveis
+usdm::vifstep(trait_amphibia_log[, c("taxa_fenotipica",
+                                     "taxa_omi",
+                                     "taxa_tol")], th=10) 
+usdm::vifstep(trait_reptilia_log[, c("taxa_fenotipica",
+                                     "taxa_omi",
+                                     "taxa_tol")], th=10) 
+usdm::vifstep(trait_birds_log[, c("taxa_fenotipica",
+                                  "taxa_omi",
+                                  "taxa_tol")], th=10) 
+usdm::vifstep(trait_mammals_log[, c("taxa_fenotipica",
+                                    "taxa_omi",
+                                    "taxa_tol")], th=10) 
+
+cor.test(trait_amphibia_log$taxa_tol, trait_amphibia_log$taxa_omi)
+cor.test(trait_reptilia_log$taxa_tol, trait_reptilia_log$taxa_omi)
+cor.test(trait_birds_log$taxa_tol, trait_birds_log$taxa_omi)
+cor.test(trait_mammals_log$taxa_tol, trait_mammals_log$taxa_omi)
 ```
 
 #### 3.1. Amphibia
 ```{r}
-# Only climatic niche
-rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
-
-result_amphibia <- phylo_path(models_climate, # change models 
+result_amphibia <- phylo_path(models_dir, # change models 
                      data = trait_amphibia_log,
                      tree = amphibia_phy,
                      model = 'lambda')
-s <- summary(result_amphibia)
-plot(s)
+summary(result_amphibia)
+plot(summary(result_amphibia))
 
 # best model
-best_amphibia <- best(result_amphibia)
-
-plot(best_amphibia, 
+plot(best(result_amphibia), 
      text_size = 4,
      edge_width = 1.25,
   curvature = 0,
   rotation = 0,
   algorith = 'mds')
 
-coef_plot(best_amphibia,
+coef_plot(best(result_amphibia),
           error_bar = "se") +
   ggplot2::coord_flip()
 ```
-
 #### 3.2. Squamata
 ```{r}
-rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
-
-# Only climate
-result_reptilia <- phylo_path(models_simple, 
+result_reptilia <- phylo_path(models_dir, 
                      data = trait_reptilia_log,
                      tree = reptilia_phy,
                      model = 'lambda')
 summary(result_reptilia)
-s <- summary(result_reptilia)
-plot(s)
+plot(summary(result_reptilia))
 
-result_reptilia$d_sep$M1
+# media dos modelos concorrentes
+average_rep_model <- average(result_reptilia)
 
-# Diagnosticar caminhos ausentes no melhor modelo
-test_dsep(result_reptilia, model = "M7") 
-
-# Pega o melhor
-best_reptilia <- best(result_reptilia)
-coef_plot(best_reptilia,
-          error_bar = "se") +
-  ggplot2::coord_flip()
-
-plot(best_reptilia, 
-     text_size = 4,
-     edge_width = 1.25,
+# increase the curvature to avoid overlapping edges
+plot(average_rep_model,
+  text_size = 4,
+  edge_width = 1.25,
   curvature = 0,
   rotation = 0,
-  algorith = 'mds')
+  algorith = 'mds') 
 
+coef_plot(average_rep_model,
+          error_bar = "se") +
+  ggplot2::coord_flip()
 ```
 
 #### 3.3. Birds
 ```{r}
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
-
-# Only climate
-result_birds <- phylo_path(models_all, 
+result_birds <- phylo_path(models_dir, 
                      data = trait_birds_log,
                      tree = birds_phy,
                      model = 'lambda')
-
 summary(result_birds)
-s <- summary(result_birds)
-plot(s)
+plot(summary(result_birds))
 
-# Pega o melhor
-best_result_birds <- best(result_birds)
+# media dos modelos concorrentes
+average_birds_model <- average(result_birds)
 
-coef_plot(best_result_birds,
+# increase the curvature to avoid overlapping edges
+plot(average_birds_model,
+  text_size = 2,
+  edge_width = 1.25,
+  curvature = 0.1,
+  rotation = 0,
+  algorith = 'mds') 
+
+coef_plot(average_birds_model,
           error_bar = "se") +
   ggplot2::coord_flip()
-
-plot(best_result_birds, 
-     text_size = 4,
-     edge_width = 1.25,
-  curvature = 0,
-  rotation = 0,
-  algorith = 'mds')
 ```
 
 #### 3.4. Mammals
 
 ```{r}
-rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
-
-# Only climate
-result_mammals <- phylo_path(models_all, 
+result_mammals <- phylo_path(models_dir, 
                      data = trait_mammals_log,
                      tree = mammals_phy,
                      model = 'lambda')
 
 summary(result_mammals)
+plot(summary(result_mammals))
 
-# Pega o melhor
-best_mammals <- best(result_mammals)
-s <- summary(result_mammals)
-plot(s)
+# media dos modelos concorrentes
+average_mammals_model <- average(result_mammals)
+# increase the curvature to avoid overlapping edges
+plot(average_mammals_model,
+  text_size = 2,
+  edge_width = 1.25,
+  curvature = 0.1,
+  rotation = 0,
+  algorith = 'mds') 
 
-coef_plot(best_mammals,
+coef_plot(average_birds_model,
           error_bar = "se") +
   ggplot2::coord_flip()
-
-plot(best_mammals, 
-     text_size = 4,
-     edge_width = 1.25,
-  curvature = 0,
-  rotation = 0,
-  algorith = 'mds')
 ```
 
-
-
 ### 4. PGLS
-
 #### 4.1. Amphibia
 ```{r}
 model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol + Verticality,
@@ -833,7 +798,6 @@ R2(model_evo_mammals)
 #### 5.2. Reptilia
 
 #### 5.3. Birds
-
 #### 5.4. Mammals
 
 ```{r}
@@ -999,9 +963,9 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
 
 #### 6.2. Phylogeny plots
 ```{r}
-phy <- birds_phy # define a filogenia
-trait <- trait_birds_log # define o dataframe com os dados 
-group <- "aves" # save figure name
+phy <- mammals_phy # define a filogenia
+trait <- trait_mammals_log # define o dataframe com os dados 
+group <- "Mammals" # save figure name
 
 # Preparing data
 tip_order <- phy$tip.label
@@ -1100,7 +1064,11 @@ plot <- plot + new_scale_fill()
 tree_plot_h <- gheatmap(
     plot,
     trait_log_ordered[, "HexColors", drop = FALSE],
-    offset = 13,
+    offset = 28,
+    # 40 para anfibios
+    # 35 para repteis
+    # 13 para aves
+    # 28 para mammals
     width = 0.025,
     colnames_angle = 90,
     colnames = FALSE,
@@ -1112,7 +1080,11 @@ tree_plot_h <- gheatmap(
     aes(label = HighRankLabel),
     size = 10.62,
     align = FALSE,
-    offset = 17
+    offset = 40
+    # 53 para anfibios
+    # 42 para repteis
+    # 17 para aves
+    # 40 para mammals
   ) +
     theme(legend.position = "right")
 
