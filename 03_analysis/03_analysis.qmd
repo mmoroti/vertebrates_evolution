@@ -474,7 +474,7 @@ Transform data
 # Os modelos melhoram ao transformar as variaveis
 trait_mammals_log <- df_trait_mammals %>%
   mutate(
-    taxa_fenotipica = log(taxa_fenotipica),
+    taxa_fenotipica = scale(log(taxa_fenotipica)),
     OMI    = scale(log(OMI)),
     Tol    = scale(log(Tol+1)),
     taxa_tol   = scale(log(taxa_tol)),
@@ -490,8 +490,6 @@ normalize_variables <- vegan::decostand(trait_mammals_log %>%
 trait_mammals_normalize <- cbind(trait_mammals_log %>%
                                select(-OMI, -Tol),
                              normalize_variables)
-
-trait_mammals_log <- trait_mammals_normalize
 ```
 
 ### 3. PhyloPath
@@ -499,11 +497,38 @@ trait_mammals_log <- trait_mammals_normalize
 #### 3.0. Theorical models
 
 ```{r}
+# adjust in names
+rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
+rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
+rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
+rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
+
+# testar correlacao entre variaveis
+usdm::vifstep(trait_amphibia_log[, c("taxa_fenotipica",
+                                     "taxa_omi",
+                                     "taxa_tol",
+                                     "Verticality")], th=10) 
+usdm::vifstep(trait_reptilia_log[, c("taxa_fenotipica",
+                                     "taxa_omi",
+                                     "taxa_tol",
+                                     "Verticality")], th=10) 
+usdm::vifstep(trait_birds_log[, c("taxa_fenotipica",
+                                  "taxa_omi",
+                                  "taxa_tol",
+                                  "Verticality")], th=10) 
+usdm::vifstep(trait_mammals_log[, c("taxa_fenotipica",
+                                    "taxa_omi",
+                                    "taxa_tol",
+                                    "Verticality")], th=10) 
+```
+
+```{r}
 models_dir <- define_model_set(
   null = c(),
   A1 = c(
     taxa_fenotipica ~ taxa_omi + Verticality,
-    taxa_omi        ~ taxa_tol + Verticality
+    taxa_omi        ~ taxa_tol + Verticality, 
+    taxa_tol        ~ Verticality
   ),
   A2 = c(
     taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
@@ -531,61 +556,273 @@ models_dir <- define_model_set(
     taxa_tol        ~ Verticality
   )
 )
+plot_model_set(models_dir)
+```
 
-# adjust in names
-rownames(trait_reptilia_log) <- trait_reptilia_log$Scientific.Name
-rownames(trait_amphibia_log) <- trait_amphibia_log$Scientific.Name
-rownames(trait_birds_log) <- trait_birds_log$Scientific.Name
-rownames(trait_mammals_log) <- trait_mammals_log$Scientific.Name
+```{r}
+models_dir <- define_model_set(
+  # taxa fenotipica como variavel resposta
+  A1 = c(
+    taxa_fenotipica ~ taxa_omi + Verticality,
+    taxa_omi        ~ Verticality, 
+    taxa_tol        ~ Verticality
+  ),
+  A2 = c(
+    taxa_fenotipica ~ taxa_tol + Verticality,
+    taxa_omi        ~ Verticality, 
+    taxa_tol        ~ Verticality
+  ),
+  A3 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_omi + Verticality
+  ),
+  A4 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
+    taxa_omi        ~ taxa_tol + Verticality
+  ),
+  # posicao de nicho como variavel resposta 
+  B1 = c(
+    taxa_omi ~ taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ Verticality, 
+    taxa_tol ~ Verticality
+  ),
+  B2 = c(
+    taxa_omi        ~ taxa_tol + Verticality,
+    taxa_fenotipica ~ Verticality, 
+    taxa_tol ~ Verticality
+  ),
+  B3 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    taxa_fenotipica ~ taxa_tol + Verticality
+  ),
+  B4 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_fenotipica + Verticality
+  ),
+  # amplitude de nicho como variavel resposta 
+  C1 = c(
+    taxa_tol ~ taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ Verticality, 
+    taxa_omi ~ Verticality
+  ),
+  C2 = c(
+    taxa_tol        ~ taxa_omi + Verticality,
+    taxa_fenotipica ~ Verticality, 
+    taxa_omi ~ Verticality
+  ),
+  C3 = c(
+    taxa_tol        ~ taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ taxa_omi + Verticality
+  ),
+  C4 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_omi + Verticality,
+    taxa_tol        ~ taxa_fenotipica + Verticality
+  ),
+  # nenhuma relacao entre as variaveis e verticalidade explica tudo
+  H = c(
+    taxa_fenotipica ~ Verticality,
+    taxa_omi        ~ Verticality,
+    taxa_tol        ~ Verticality
+  ),
+  # modelo nulo
+  null = c()
+)
+```
 
-# testar correlacao entre variaveis
-usdm::vifstep(trait_amphibia_log[, c("taxa_fenotipica",
-                                     "taxa_omi",
-                                     "taxa_tol")], th=10) 
-usdm::vifstep(trait_reptilia_log[, c("taxa_fenotipica",
-                                     "taxa_omi",
-                                     "taxa_tol")], th=10) 
-usdm::vifstep(trait_birds_log[, c("taxa_fenotipica",
-                                  "taxa_omi",
-                                  "taxa_tol")], th=10) 
-usdm::vifstep(trait_mammals_log[, c("taxa_fenotipica",
-                                    "taxa_omi",
-                                    "taxa_tol")], th=10) 
+```{r}
+models_dir <- define_model_set(
+  # taxa fenotipica como variavel resposta
+  A1 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol,
+    taxa_tol        ~ taxa_omi, 
+    taxa_omi        ~ Verticality
+  ),
+  A2 = c(
+    taxa_fenotipica ~ taxa_tol + taxa_omi,
+    taxa_omi        ~ taxa_tol, 
+    taxa_omi        ~ Verticality
+  ),
+  A3 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol,
+    taxa_omi        ~ taxa_tol,
+    taxa_tol        ~ Verticality
+  ),
+  A4 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol,
+    taxa_tol        ~ taxa_omi,
+    taxa_tol        ~ Verticality
+  ),
+  A5 = c(
+    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_omi,
+    taxa_tol        ~ Verticality
+  ),
+  A6 = c(
+    taxa_fenotipica ~ taxa_tol + taxa_omi + Verticality,
+    taxa_omi        ~ taxa_tol, 
+    taxa_omi        ~ Verticality
+  ),
+  A7 = c(
+    taxa_fenotipica ~ taxa_tol + taxa_omi + Verticality,
+    Verticality     ~ taxa_tol,
+    taxa_tol ~ taxa_omi),
+  A8 = c(
+    taxa_fenotipica ~ taxa_tol + taxa_omi + Verticality,
+    Verticality     ~ taxa_omi,
+    taxa_omi ~ taxa_tol),
+  B1 = c(
+    taxa_omi        ~ taxa_tol + taxa_fenotipica,
+    taxa_fenotipica ~ taxa_tol,
+    taxa_tol        ~ Verticality
+  ),
+  B2 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol,
+    taxa_tol        ~ taxa_fenotipica,
+    taxa_tol        ~ Verticality
+  ),
+  B3 = c(
+    taxa_omi        ~ taxa_tol + taxa_fenotipica,
+    taxa_tol        ~ taxa_fenotipica,
+    taxa_fenotipica ~ Verticality
+  ),
+  B4 = c(
+    taxa_omi        ~ taxa_tol + taxa_fenotipica,
+    taxa_fenotipica ~ taxa_tol,
+    taxa_fenotipica ~ Verticality
+  ),
+  B5 = c(
+    taxa_omi        ~ taxa_tol + taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ taxa_tol,
+    taxa_fenotipica ~ Verticality
+  ),
+  B6 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    taxa_tol        ~ taxa_fenotipica,
+    taxa_tol        ~ Verticality
+  ),
+  B7 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    Verticality     ~ taxa_fenotipica,
+    taxa_fenotipica ~ taxa_tol
+  ),
+  B8 = c(
+    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
+    Verticality     ~ taxa_tol,
+    taxa_tol        ~ taxa_fenotipica
+  ),
+  C1 = c(
+    taxa_tol        ~ taxa_fenotipica + taxa_omi,
+    taxa_omi        ~ taxa_fenotipica,
+    taxa_fenotipica ~ Verticality
+  ),
+  C2 = c(
+    taxa_tol        ~ taxa_omi + taxa_fenotipica,
+    taxa_fenotipica ~ taxa_omi,
+    taxa_fenotipica ~ Verticality
+  ),
+  C3 = c(
+    taxa_tol        ~ taxa_fenotipica + taxa_omi,
+    taxa_fenotipica ~ taxa_omi,
+    taxa_omi        ~ Verticality
+  ),
+  C4 = c(
+    taxa_tol        ~ taxa_fenotipica + taxa_omi,
+    taxa_omi        ~ taxa_fenotipica,
+    taxa_omi        ~ Verticality
+  ),
+  C5 = c(
+    taxa_tol        ~ taxa_fenotipica + taxa_omi + Verticality,
+    taxa_omi        ~ taxa_fenotipica,
+    taxa_omi        ~ Verticality
+  ),
+  C6 = c(
+    taxa_tol        ~ taxa_omi + taxa_fenotipica + Verticality,
+    taxa_fenotipica ~ taxa_omi,
+    taxa_fenotipica ~ Verticality
+  ),
+  C7 = c(
+    taxa_tol        ~ taxa_omi + taxa_fenotipica + Verticality,
+    Verticality     ~ taxa_omi,
+    taxa_omi        ~ taxa_fenotipica
+  ),
+  C8 = c(
+    taxa_tol        ~ taxa_omi + taxa_fenotipica + Verticality,
+    Verticality     ~ taxa_fenotipica,
+    taxa_fenotipica ~ taxa_omi
+  ),
+  V1 = c(
+      Verticality     ~ taxa_fenotipica + taxa_omi,
+      taxa_omi        ~ taxa_fenotipica,
+      taxa_fenotipica ~ taxa_tol
+    ),
+    V2 = c(
+      Verticality     ~ taxa_omi + taxa_fenotipica,
+      taxa_fenotipica ~ taxa_omi + taxa_tol
+    ),
+    V3 = c(
+      Verticality     ~ taxa_fenotipica + taxa_omi,
+      taxa_fenotipica ~ taxa_omi,
+      taxa_omi        ~ taxa_tol
+    ),
+    V4 = c(
+      Verticality     ~ taxa_fenotipica + taxa_omi,
+      taxa_omi        ~ taxa_fenotipica + taxa_tol
+    ),
+    V5 = c(
+      Verticality     ~ taxa_fenotipica + taxa_omi + taxa_tol,
+      taxa_omi        ~ taxa_fenotipica + taxa_tol
+    ),
+    V6 = c(
+      Verticality     ~ taxa_omi + taxa_fenotipica + taxa_tol,
+      taxa_fenotipica ~ taxa_omi + taxa_tol
+    ),
+    V7 = c(
+      Verticality     ~ taxa_omi + taxa_fenotipica + taxa_tol,
+      taxa_tol        ~ taxa_omi,
+      taxa_omi        ~ taxa_fenotipica
+    ),
+    V8 = c(
+      Verticality     ~ taxa_omi + taxa_fenotipica + taxa_tol,
+      taxa_tol        ~ taxa_fenotipica,
+      taxa_fenotipica ~ taxa_omi
+    )
+)
+```
 
-cor.test(trait_amphibia_log$taxa_tol, trait_amphibia_log$taxa_omi)
-cor.test(trait_reptilia_log$taxa_tol, trait_reptilia_log$taxa_omi)
-cor.test(trait_birds_log$taxa_tol, trait_birds_log$taxa_omi)
-cor.test(trait_mammals_log$taxa_tol, trait_mammals_log$taxa_omi)
+```{r}
+plot_model_set(models_dir, 
+               labels = c("taxa_fenotipica" = "Morphology",
+                          "taxa_tol" = "Niche \nbreadth",
+                          "taxa_omi" = "Niche position",
+                          "Verticality" = "Verticality"),
+               nrow = 8, text_size = 3)
 ```
 
 #### 3.1. Amphibia
 ```{r}
 result_amphibia <- phylo_path(models_dir, # change models 
-                     data = trait_amphibia_log,
-                     tree = amphibia_phy,
-                     model = 'lambda')
-summary(result_amphibia)
+                              data = trait_amphibia_log,
+                              tree = amphibia_phy,
+                              model = 'lambda')
 plot(summary(result_amphibia))
 
-# best model
-plot(best(result_amphibia), 
+# media dos modelos concorrentes
+average_amphibia_model <- average(result_amphibia)
+# increase the curvature to avoid overlapping edges
+plot(average_amphibia_model,
      text_size = 4,
-     edge_width = 1.25,
-  curvature = 0,
-  rotation = 0,
-  algorith = 'mds')
-
-coef_plot(best(result_amphibia),
-          error_bar = "se") +
-  ggplot2::coord_flip()
+     edge_width = 0.25,
+     curvature = 0.1,
+     rotation = 0,
+     algorithm = "sugiyama")
 ```
+
 #### 3.2. Squamata
 ```{r}
 result_reptilia <- phylo_path(models_dir, 
                      data = trait_reptilia_log,
                      tree = reptilia_phy,
                      model = 'lambda')
-summary(result_reptilia)
 plot(summary(result_reptilia))
 
 # media dos modelos concorrentes
@@ -595,13 +832,9 @@ average_rep_model <- average(result_reptilia)
 plot(average_rep_model,
   text_size = 4,
   edge_width = 1.25,
-  curvature = 0,
+  curvature = 0.1,
   rotation = 0,
   algorith = 'mds') 
-
-coef_plot(average_rep_model,
-          error_bar = "se") +
-  ggplot2::coord_flip()
 ```
 
 #### 3.3. Birds
@@ -610,7 +843,6 @@ result_birds <- phylo_path(models_dir,
                      data = trait_birds_log,
                      tree = birds_phy,
                      model = 'lambda')
-summary(result_birds)
 plot(summary(result_birds))
 
 # media dos modelos concorrentes
@@ -618,41 +850,38 @@ average_birds_model <- average(result_birds)
 
 # increase the curvature to avoid overlapping edges
 plot(average_birds_model,
-  text_size = 2,
+               labels = c("taxa_fenotipica" = "Morphology",
+                          "taxa_tol" = "Niche \nbreadth",
+                          "taxa_omi" = "Niche position",
+                          "Verticality" = "Verticality"),
+  text_size = 5,
   edge_width = 1.25,
-  curvature = 0.1,
+  curvature = 0.05,
   rotation = 0,
   algorith = 'mds') 
-
-coef_plot(average_birds_model,
-          error_bar = "se") +
-  ggplot2::coord_flip()
 ```
 
 #### 3.4. Mammals
-
 ```{r}
 result_mammals <- phylo_path(models_dir, 
                      data = trait_mammals_log,
                      tree = mammals_phy,
                      model = 'lambda')
-
-summary(result_mammals)
 plot(summary(result_mammals))
 
 # media dos modelos concorrentes
 average_mammals_model <- average(result_mammals)
 # increase the curvature to avoid overlapping edges
 plot(average_mammals_model,
-  text_size = 2,
+  labels = c("taxa_fenotipica" = "Morphology",
+             "taxa_tol" = "Niche \nbreadth",
+             "taxa_omi" = "Niche position",
+             "Verticality" = "Verticality"),
+  text_size = 5,
   edge_width = 1.25,
-  curvature = 0.1,
+  curvature = 0.05,
   rotation = 0,
   algorith = 'mds') 
-
-coef_plot(average_birds_model,
-          error_bar = "se") +
-  ggplot2::coord_flip()
 ```
 
 ### 4. PGLS
@@ -792,11 +1021,8 @@ R2(model_evo_mammals)
 
 
 ### 5. PWR
-
 #### 5.1. Amphibia
-
 #### 5.2. Reptilia
-
 #### 5.3. Birds
 #### 5.4. Mammals
 
@@ -904,8 +1130,8 @@ bandw#0.06224979
 tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
 ```
 
-### 6.0. Plots
 
+### 6.0. Plots
 #### 6.1. Plot PCA Climatic niche
 
 ```{r}
