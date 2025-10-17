@@ -16,8 +16,6 @@ library(geiger) # phylogenetic plot
 library(nlme) # gls analysis
 library(cowplot) # plots
 library(rr2) # r2 pgls
-# modelplots coeficients 
-library(modelsummary) 
 # PWR analysis
 library(pez)
 library(phylobase)
@@ -47,7 +45,7 @@ TetraData <- data.table::fread("../traits/TetrapodTraits_1.0.0.csv") %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
   select(Scientific.Name, Fos, Ter, Aqu, Arb, Aer, 
          Verticality, Nocturnality,
-         ImputedHabitat, Suborder) 
+         ImputedHabitat, Genus, Family, Suborder) 
 ```
 
 #### 1.2. Climate niche
@@ -524,113 +522,8 @@ usdm::vifstep(trait_mammals_log[, c("taxa_fenotipica",
 
 ```{r}
 models_dir <- define_model_set(
+  # Modelo nulo
   null = c(),
-  A1 = c(
-    taxa_fenotipica ~ taxa_omi + Verticality,
-    taxa_omi        ~ taxa_tol + Verticality, 
-    taxa_tol        ~ Verticality
-  ),
-  A2 = c(
-    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
-    taxa_tol        ~ taxa_omi + Verticality
-  ),
-  B1 = c(
-    taxa_omi        ~ taxa_fenotipica + Verticality,
-    taxa_fenotipica ~ taxa_tol + Verticality
-  ),
-  B2 = c(
-    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
-    taxa_tol        ~ taxa_fenotipica + Verticality
-  ),
-  C1 = c(
-    taxa_tol        ~ taxa_fenotipica + Verticality,
-    taxa_fenotipica ~ taxa_omi + Verticality
-  ),
-  C2 = c(
-    taxa_tol        ~ taxa_fenotipica + taxa_omi + Verticality,
-    taxa_omi        ~ taxa_fenotipica + Verticality
-  ),
-  H = c(
-    taxa_fenotipica ~ Verticality,
-    taxa_omi        ~ Verticality,
-    taxa_tol        ~ Verticality
-  )
-)
-plot_model_set(models_dir)
-```
-
-```{r}
-models_dir <- define_model_set(
-  # taxa fenotipica como variavel resposta
-  A1 = c(
-    taxa_fenotipica ~ taxa_omi + Verticality,
-    taxa_omi        ~ Verticality, 
-    taxa_tol        ~ Verticality
-  ),
-  A2 = c(
-    taxa_fenotipica ~ taxa_tol + Verticality,
-    taxa_omi        ~ Verticality, 
-    taxa_tol        ~ Verticality
-  ),
-  A3 = c(
-    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
-    taxa_tol        ~ taxa_omi + Verticality
-  ),
-  A4 = c(
-    taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
-    taxa_omi        ~ taxa_tol + Verticality
-  ),
-  # posicao de nicho como variavel resposta 
-  B1 = c(
-    taxa_omi ~ taxa_fenotipica + Verticality,
-    taxa_fenotipica ~ Verticality, 
-    taxa_tol ~ Verticality
-  ),
-  B2 = c(
-    taxa_omi        ~ taxa_tol + Verticality,
-    taxa_fenotipica ~ Verticality, 
-    taxa_tol ~ Verticality
-  ),
-  B3 = c(
-    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
-    taxa_fenotipica ~ taxa_tol + Verticality
-  ),
-  B4 = c(
-    taxa_omi        ~ taxa_fenotipica + taxa_tol + Verticality,
-    taxa_tol        ~ taxa_fenotipica + Verticality
-  ),
-  # amplitude de nicho como variavel resposta 
-  C1 = c(
-    taxa_tol ~ taxa_fenotipica + Verticality,
-    taxa_fenotipica ~ Verticality, 
-    taxa_omi ~ Verticality
-  ),
-  C2 = c(
-    taxa_tol        ~ taxa_omi + Verticality,
-    taxa_fenotipica ~ Verticality, 
-    taxa_omi ~ Verticality
-  ),
-  C3 = c(
-    taxa_tol        ~ taxa_fenotipica + Verticality,
-    taxa_fenotipica ~ taxa_omi + Verticality
-  ),
-  C4 = c(
-    taxa_omi        ~ taxa_fenotipica + taxa_omi + Verticality,
-    taxa_tol        ~ taxa_fenotipica + Verticality
-  ),
-  # nenhuma relacao entre as variaveis e verticalidade explica tudo
-  H = c(
-    taxa_fenotipica ~ Verticality,
-    taxa_omi        ~ Verticality,
-    taxa_tol        ~ Verticality
-  ),
-  # modelo nulo
-  null = c()
-)
-```
-
-```{r}
-models_dir <- define_model_set(
   # taxa fenotipica como variavel resposta
   A1 = c(
     taxa_fenotipica ~ taxa_omi + taxa_tol,
@@ -884,250 +777,247 @@ plot(average_mammals_model,
   algorith = 'mds') 
 ```
 
-### 4. PGLS
+
+### 4. PhyloPath (Without ImputedHabitat)
 #### 4.1. Amphibia
 ```{r}
-model_niche_amphibia <- gls(taxa_fenotipica ~ OMI + Tol + Verticality,
-                         data = trait_amphibia_log,
-                    correlation = corPagel(1,amphibia_phy,
-                                           form = ~Scientific.Name))
-summary(model_niche_amphibia)
+# Adjust data
+trait_amphibia_log_obs <- trait_amphibia_log %>%
+  filter(ImputedHabitat == 0)
 
-model_evo_amphibia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol + Verticality,
-                         data = trait_amphibia_log,
-                    correlation = corPagel(1,amphibia_phy,
-                                           form = ~Scientific.Name))
-summary(model_evo_amphibia)
+amphibia_community_obs <- trait_amphibia_log_obs %>%
+  select(Scientific.Name, taxa_fenotipica) %>%
+  pivot_wider(names_from = Scientific.Name, values_from = taxa_fenotipica)
 
-# Diagnose model
-amphibia_diagnosis_niche <- plot(model_niche_amphibia)
-amphibia_diagnosis_evo <- plot(model_evo_amphibia)
+amphibia_phy_obs <- picante::prune.sample(amphibia_community_obs,
+                              amphibia_phy_full)
 
-# AIC
-AIC(model_niche_amphibia)
-AIC(model_evo_amphibia)
+# Models
+result_amphibia_obs <- phylo_path(models_dir, # change models 
+                              data = trait_amphibia_log_obs,
+                              tree = amphibia_phy_obs,
+                              model = 'lambda')
+plot(summary(result_amphibia_obs))
 
-# Save
-save(model_niche_amphibia,
-     file = "model_niche_amphibia.RData")
-save(model_evo_amphibia,
-     file = "model_evo_amphibia.RData")
-# R2
-R2(model_niche_amphibia)
-R2(model_evo_amphibia)
+# media dos modelos concorrentes
+average_amphibia_model_obs <- average(result_amphibia_obs)
+# increase the curvature to avoid overlapping edges
+plot(average_amphibia_model_obs,
+     text_size = 4,
+     edge_width = 0.25,
+     curvature = 0.1,
+     rotation = 0,
+     algorithm = "sugiyama")
 ```
 
 #### 4.2. Squamata
-
 ```{r}
-model_niche_reptilia <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Verticality,
-                         data = trait_reptilia_log,
-                    correlation = corPagel(1,reptilia_phy,
-                                           form = ~Scientific.Name))
-summary(model_niche_reptilia)
+# Adjust data
+trait_reptilia_log_obs <- trait_reptilia_log %>%
+  filter(ImputedHabitat == 0)
 
-model_evo_reptilia <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
-                           Verticality,
-                         data = trait_reptilia_log,
-                    correlation = corPagel(1,reptilia_phy,
-                                           form = ~Scientific.Name))
-summary(model_evo_reptilia)
+reptilia_community_obs <- trait_reptilia_log_obs %>%
+  select(Scientific.Name, taxa_fenotipica) %>%
+  pivot_wider(names_from = Scientific.Name, values_from = taxa_fenotipica)
 
-# Model diagnose
-reptilia_niche_diagnosis <- plot(model_niche_reptilia)
-reptilia_evo_diagnosis <- plot(model_evo_reptilia)
+reptilia_phy_obs <- picante::prune.sample(reptilia_community_obs,
+                              reptilia_phy_full)
 
-# Save
-save(model_niche_reptilia,
-     file = "model_niche_reptilia.RData")
-save(model_evo_reptilia,
-     file = "model_evo_reptilia.RData")
+# Models
+result_reptilia_obs <- phylo_path(models_dir, 
+                     data = trait_reptilia_log_obs,
+                     tree = reptilia_phy_obs,
+                     model = 'lambda')
+plot(summary(result_reptilia_obs))
 
-# R2
-R2(model_niche_reptilia)
-R2(model_evo_reptilia)
+# media dos modelos concorrentes
+average_rep_model_obs <- average(result_reptilia_obs)
+
+# increase the curvature to avoid overlapping edges
+plot(average_rep_model_obs,
+  text_size = 4,
+  edge_width = 1.25,
+  curvature = 0.1,
+  rotation = 0,
+  algorith = 'mds') 
 ```
 
 #### 4.3. Birds
-
 ```{r}
-model_niche_birds <- gls(taxa_fenotipica ~ OMI + Tol +
-                           Verticality,
-                         data = trait_birds_normalize,
-                    correlation = corPagel(1,birds_phy,
-                                           form = ~Scientific.Name))
-summary(model_niche_birds)
+# Adjust data
+trait_birds_log_obs <- trait_birds_log %>%
+  filter(ImputedHabitat == 0)
 
-model_evo_birds <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol +
-                           Verticality,
-                         data = trait_birds_normalize,
-                    correlation = corPagel(1,birds_phy,
-                                           form = ~Scientific.Name))
-summary(model_evo_birds)
+birds_community_obs <- trait_birds_log_obs %>%
+  select(Scientific.Name, taxa_fenotipica) %>%
+  pivot_wider(names_from = Scientific.Name, values_from = taxa_fenotipica)
 
-model_evo_birds_2 <- gls(taxa_tol ~ taxa_fenotipica + taxa_omi + Verticality,
-                         data = trait_birds_log,
-                    correlation = corPagel(1, birds_phy,
-                                           form = ~Scientific.Name))
+birds_phy_obs <- picante::prune.sample(birds_community_obs,
+                              birds_phy_full)
 
-# Plot
-birds_diagnosis_niche <- plot(model_niche_birds)
-birds_diagnosis_evo <- plot(model_evo_birds)
+# Models
+result_birds_obs <- phylo_path(models_dir, 
+                     data = trait_birds_log_obs,
+                     tree = birds_phy_obs,
+                     model = 'lambda')
+plot(summary(result_birds_obs))
 
-# Save
-save(model_niche_birds,
-     file = "model_niche_birds.RData")
+# media dos modelos concorrentes
+average_birds_model_obs <- average(result_birds_obs)
 
-save(model_evo_birds,
-     file = "model_evo_birds.RData")
-
-# R2
-R2(model_niche_birds)
-R2(birds_diagnosis_evo)
+# increase the curvature to avoid overlapping edges
+plot(average_birds_model_obs,
+               labels = c("taxa_fenotipica" = "Morphology",
+                          "taxa_tol" = "Niche \nbreadth",
+                          "taxa_omi" = "Niche position",
+                          "Verticality" = "Verticality"),
+  text_size = 5,
+  edge_width = 1.25,
+  curvature = 0.05,
+  rotation = 0,
+  algorith = "sugiyama") 
 ```
 
 #### 4.4. Mammals
 ```{r}
-model_niche_mammals <- gls(taxa_fenotipica ~ OMI + Tol + 
-                             Verticality,
-                         data = trait_mammals_log,
-                    correlation = corPagel(1,mammals_phy,
-                                           form = ~Scientific.Name))
-# Model statistics 
-summary(model_niche_mammals)
-# Diagnose model
-mammals_niche_diagnosis <- plot(model_niche_mammals)
+# Adjust data
+trait_mammals_log_obs <- trait_mammals_log %>%
+  filter(ImputedHabitat == 0)
 
-model_evo_mammals <- gls(taxa_fenotipica ~ taxa_omi + taxa_tol + 
-                             Verticality,
-                         data = trait_mammals_log,
-                    correlation = corPagel(1,mammals_phy,
-                                           form = ~Scientific.Name))
-# Diagnose model
-mammals_evo_diagnosis <- plot(model_evo_mammals)
-# Model statistics 
-summary(model_evo_mammals)
-# Save
-save(model_niche_mammals,
-     file = "model_niche_mammals.RData")
-save(model_evo_mammals,
-     file = "model_evo_mammals.RData")
-# R2
-R2(model_niche_mammals)
-R2(model_evo_mammals)
+mammals_community_obs <- trait_mammals_log_obs %>%
+  select(Scientific.Name, taxa_fenotipica) %>%
+  pivot_wider(names_from = Scientific.Name, values_from = taxa_fenotipica)
 
+mammals_phy_obs <- picante::prune.sample(mammals_community_obs,
+                              mammals_phy_full)
+
+# Models
+result_mammals_obs <- phylo_path(models_dir, 
+                     data = trait_mammals_log_obs,
+                     tree = mammals_phy_obs,
+                     model = 'lambda')
+plot(summary(result_mammals_obs))
+
+# media dos modelos concorrentes
+average_mammals_model_obs <- average(result_mammals_obs)
+# increase the curvature to avoid overlapping edges
+plot(average_mammals_model_obs,
+  labels = c("taxa_fenotipica" = "Morphology",
+             "taxa_tol" = "Niche \nbreadth",
+             "taxa_omi" = "Niche position",
+             "Verticality" = "Verticality"),
+  text_size = 5,
+  edge_width = 1.25,
+  curvature = 0.05,
+  rotation = 0,
+  algorith = 'mds') 
 ```
 
 
-### 5. PWR
-#### 5.1. Amphibia
-#### 5.2. Reptilia
-#### 5.3. Birds
-#### 5.4. Mammals
+### 5.0. Sensitivity analysis of data
 
 ```{r}
-load(
-  "model_niche_mammals.RData"
-)
-source("pwr_functions/pwr-functions.R")
-source("pwr_functions/pwr-plots.R")
+library(sensiPhy)
 
-c.data <- phylo4d(mammals_phy,
-                  trait_mammals_log,
-                  label.type="column",
-                  label.column="Scientific.Name")
+# Dataset complete
+TetraData <- data.table::fread(
+  "../traits/TetrapodTraits_1.0.0.csv") %>%
+  mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
+  dplyr::select("Scientific.Name", "Class", "Order", 
+         "BodyMass_g", "BodyLength_mm",
+         "ImputedMass", "ImputedLength",
+         "Verticality", "ImputedHabitat")
 
-phyloWR <- pwr(taxa_fenotipica ~ Tol + OMI, c.data,
-               wfun="brownian", verbose=FALSE)
+amphibia_data <- TetraData %>%
+  filter(Class == "Amphibia") %>%
+  mutate(BodyLength_mm = if_else(ImputedLength == 1, NA_real_, BodyLength_mm),
+         Verticality = if_else(ImputedHabitat == 1, NA_real_, Verticality)) %>%
+  dplyr::select(Scientific.Name, BodyLength_mm, Verticality,
+                ImputedHabitat) %>%
+  column_to_rownames(var = "Scientific.Name") 
 
-# Extrair coeficientes para mais de uma variavel na pwr
-getEst <- getEst_mod(phyloWR)
+squamata_data <- TetraData %>%
+  filter(Class == "Reptilia") %>%
+  filter(!Order %in% c("Crocodylia", "Testudines")) %>%
+  mutate(BodyLength_mm = if_else(ImputedLength == 1, NA_real_, BodyLength_mm),
+         Verticality = if_else(ImputedHabitat == 1, NA_real_, Verticality)) %>%
+  dplyr::select(Scientific.Name, BodyLength_mm, Verticality,
+                ImputedHabitat) %>%
+  column_to_rownames(var = "Scientific.Name")
 
-# Criar dataframe externamente para extrair coeficientes do PGLS global
-omi <- data.frame(
-  gest=coef(model_niche_mammals)[2],
-  glb=confint(model_niche_mammals)[2,1],
-  gub=confint(model_niche_mammals)[2,2]
-)
-tol <- data.frame(
-  gest=coef(model_niche_mammals)[3],
-  glb=confint(model_niche_mammals)[3,1],
-  gub=confint(model_niche_mammals)[3,2]
-)
+aves_data <- TetraData %>%
+  filter(Class == "Aves") %>%
+  mutate(BodyMass_g = if_else(ImputedMass == 1, NA_real_, BodyMass_g),
+         Verticality = if_else(ImputedHabitat == 1, NA_real_, Verticality)) %>%
+  dplyr::select(Scientific.Name, BodyMass_g, Verticality,
+                ImputedHabitat) %>%
+  column_to_rownames(var = "Scientific.Name")
 
-getEst_omi <- getEst %>%
-  select(est_OMI, lb_OMI, ub_OMI) %>%
-  cbind(omi)
+mammals_data <- TetraData %>%
+  filter(Class == "Mammalia") %>%
+  mutate(BodyMass_g = if_else(ImputedMass == 1, NA_real_, BodyMass_g),
+         Verticality = if_else(ImputedHabitat == 1, NA_real_, Verticality)) %>%
+  dplyr::select(Scientific.Name, BodyMass_g, Verticality,
+                ImputedHabitat) %>%
+  column_to_rownames(var = "Scientific.Name")
 
-getEst_tol <- getEst %>%
-  select(est_Tol, lb_Tol, ub_Tol) %>%
-  cbind(tol)
+# Tree complete
+tree_amphibia <- read.tree(
+  file.path(
+    "..", "BAMM", "Amphibia", "amph_shl_new_Posterior_7238.1000.trees"
+    )
+  )
+tree_amphibia <- drop.tip(tree_amphibia[[1]], "Homo_sapiens")
+tree_squamata <- read.tree(
+  file.path(
+    "..", "BAMM", "Reptilia", "squam_shl_new_Posterior_9755.1000.trees"
+    )
+  )[[1]]
+tree_birds <- read.nexus(
+  file.path(
+    "..", "BAMM", "Aves", "birds_hackett_allspecies.nex"
+    )
+  )[[1]]
+tree_mammals <- read.nexus(
+  file.path(
+    "..", "BAMM", "Mammalia", 
+    "mammals_birth_death_node-dated-completed-trees.nex"
+    )
+  )[[1]]
 
-pdf("mammals.pdf", width=8, height=25)
-tp(addData(c.data[,0], getEst_omi),show.estimates=TRUE, aex=0.4,
-   show.tip.label = FALSE, )
-dev.off()
-```
+# Sensitivity test
+sensiPhy_amphibia <- miss.phylo.d(
+  amphibia_data,
+  tree_amphibia,
+  binvar = BodyLength_mm)
 
-```{r}
-# Combine in phylobase format, and then run a scatterplot
-c.data <- phylo4d(mammals_phy_pgls, mammals_dataset_full_normalizado)
-c.data
+sensiPhy_squamata <- miss.phylo.d(
+  squamata_data,
+  tree_squamata,
+  binvar = BodyLength_mm)
 
-plot(tipData(c.data)$Tol, tipData(c.data)$trait_rate, pch=rep(c(1,16), each=4),
-     xlab="Predictor", ylab="Response", bty="l") +
-  text(tipData(c.data)$Tol, tipData(c.data)$trait_rate,
-       labels=rownames(tipData(c.data)),pos=3, cex=0.8)
+sensiPhy_birds <- miss.phylo.d(
+  aves_data,
+  tree_birds,
+  binvar = BodyMass_g)
 
-# Phylogenetically weighted-regression with various weighting functions
-pwr.b <- coef(pwr(trait_rate ~ Tol+OMI , c.data, wfun="brownian"))
+sensiPhy_mammals <- miss.phylo.d(
+  mammals_data,
+  tree_mammals,
+  binvar = BodyMass_g)
 
-pwr.m <- coef(pwr(y ~ x, combined.data, wfun="martins"))
-pwr.g <- coef(pwr(y ~ x, combined.data, wfun="gaussian"))
-pwr.G <- coef(pwr(y ~ x, combined.data, wfun="Gauss"))
+# Does it exists phylogenetic signal in verticality?
+mammals_data_without <- mammals_data %>%
+  filter(ImputedHabitat == 0) %>%
+  select(Verticality)
 
-# Run a PGLS
-pgls <- gls(y ~ x, data=dat, correlation=corBrownian(phy=tree))
+tree_mammals_without <- prune.sample(t(mammals_data_without),
+                                     tree_mammals)
 
-# Contrast the PWR and PGLS estimates
-treePlot(addData(c.data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1],
-   gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb",
-   "gub")], show.tip.label=TRUE, lower=-1., upper=1.5, pex=2, aex=3.5)
-}
-
-# Tue Jun 27 15:55:25 2023 ------------------------------
-# aqui seguindo o script que o Diogo fez
-mod_div_bw_prw <- gls(log(trait_rate)~Tol+OMI, data = mammals_dataset_full_normalizado,
-                      correlation = corBrownian(phy=mammals_phy_pgls, form = ~Species))
-
-phyloWR <- pwr(log(trait_rate)~Tol+OMI, c.data,
-                      wfun="brownian", verbose=FALSE)
-
-pwr.cv(log(trait_rate)~Tol+OMI, c.data, holdout = tipData(c.data), 
-       coef = c("formula", "slope", "all"),model = c("pwr", "pgls"), wfun="brownian")
-
-get.opt.bw(log(trait_rate)~Tol+OMI, c.data, wfun="martins", method="subplex")
-
-bandw <- get.opt.bw(log(IR)~range,all_data, wfun="martins", method="subplex")
-
-bandw#0.06224979
-
-tp(addData(c.data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
-
-# Tue Jun 27 16:27:55 2023 ------------------------------
-all_data <- phylo4d(mammals_phy_pgls, mammals_dataset_full_normalizado)
-
-mod_div_bw_prw <- gls(log(trait_rate)~Tol+OMI, data = mammals_dataset_full_normalizado,
-                      correlation = corBrownian(phy=mammals_phy_pgls, form = ~Species))
-
-phyloWR <- getEst(pwr(log(trait_rate)~Tol+OMI,all_data, wfun="brownian", verbose=FALSE))
-
-bandw <- get.opt.bw(log(trait_rate)~Tol+OMI,all_data, wfun="martins", method="subplex")
-
-bandw#0.06224979
-
-tp(addData(all_data, data.frame(gest=coef(mod_div_bw_prw)[2], glb=confint(mod_div_bw_prw)[2,1], gub=confint(mod_div_bw_prw)[2,2], phyloWR))[,c("est", "lb", "ub", "gest", "glb", "gub")], show.tip.label=TRUE, pex=2, aex=3.5)
+physignal_mammals <- phylosig(tree_mammals_without,
+         mammals_data_without$Verticality,
+         method="lambda",
+         test=TRUE) 
 ```
 
 
@@ -1189,9 +1079,9 @@ cowplot::plot_grid(amphibia_pca, reptilia_pca,
 
 #### 6.2. Phylogeny plots
 ```{r}
-phy <- mammals_phy # define a filogenia
-trait <- trait_mammals_log # define o dataframe com os dados 
-group <- "Mammals" # save figure name
+phy <- birds_phy # define a filogenia
+trait <- trait_birds_log # define o dataframe com os dados 
+group <- "Aves" # save figure name
 
 # Preparing data
 tip_order <- phy$tip.label
@@ -1290,7 +1180,7 @@ plot <- plot + new_scale_fill()
 tree_plot_h <- gheatmap(
     plot,
     trait_log_ordered[, "HexColors", drop = FALSE],
-    offset = 28,
+    offset = 13,
     # 40 para anfibios
     # 35 para repteis
     # 13 para aves
@@ -1304,18 +1194,27 @@ tree_plot_h <- gheatmap(
   geom_tiplab2(
     data = tips_only,
     aes(label = HighRankLabel),
-    size = 10.62,
+    size = 18.62,
     align = FALSE,
-    offset = 40
+    offset = 17
     # 53 para anfibios
     # 42 para repteis
     # 17 para aves
     # 40 para mammals
-  ) +
+  ) + 
+  geom_text_repel(data = tips_only,
+                  force_pull   = 0, # do not pull toward data points
+    nudge_y      = 0.05,
+    direction    = "x",
+    angle        = 90,
+    hjust        = 0,
+    segment.size = 0.2,
+    max.iter = 1e4, max.time = 1,
+                   aes(label=HighRankLabel)) + 
     theme(legend.position = "right")
 
 ggsave(file.path("..", "figures",
-                 paste0("FigTree", group, ".png")), 
+                 paste0("FigTree2", group, ".png")), 
        plot=tree_plot_h, width=100, height=100, units="cm", 
        dpi = 600, limitsize = FALSE)
 ```
@@ -1394,4 +1293,68 @@ p <- ggplot(results, aes(x = 1, y = estimate, ymin = conf.low, ymax = conf.high)
 
 ggsave(paste0("../figures/fig4coefplot.tiff"), plot=p,
        width=10, height=6, units="in", dpi = 'print')
+```
+]
+#### 6.4. Boxplot plots
+```{r}
+# Função para gerar o plot
+make_box <- function(data, var, fill_color, ylab, xlab) {
+  ggplot(data, aes(x = reorder(Suborder, !!sym(var), median),
+                   y = !!sym(var))) +
+    geom_boxplot(fill = fill_color, color = "black") +
+    theme_minimal(base_size = 14) +
+    labs(
+      x = xlab,
+      y = ylab
+    ) +
+    theme(
+      axis.text.x = element_text(angle = 75, hjust = 1, size = 10),  # tamanho menor
+      axis.title.x = element_text(size = 12),                       # título do eixo
+      axis.title.y = element_text(size = 12)                        # título do eixo
+    )
+}
+
+# Amphibia
+p1 <- make_box(trait_amphibia_log, "taxa_fenotipica", xlab = "", "#F57220",
+               bquote("Morphology " ~ sigma^2))
+p2 <- make_box(trait_amphibia_log, "taxa_omi",  xlab = "", "#5C7879",
+               bquote("Niche position " ~ sigma^2))
+p3 <- make_box(trait_amphibia_log, "taxa_tol", xlab = "Suborder", "#2DAEB3",
+               bquote("Niche breadth " ~ sigma^2))
+# Squamates
+p4 <- make_box(trait_reptilia_log, "taxa_fenotipica", xlab = "", "#F57220",
+               bquote("Morphology " ~ sigma^2))
+p5 <- make_box(trait_reptilia_log, "taxa_omi",  xlab = "", "#5C7879",
+               bquote("Niche position " ~ sigma^2))
+p6 <- make_box(trait_reptilia_log, "taxa_tol",xlab = "Suborder", "#2DAEB3",
+               bquote("Niche breadth " ~ sigma^2))
+
+plot_grid(p1,p4,
+          p2,p5,
+          p3,p6,
+          ncol = 2,
+          nrow = 3)
+
+
+# Aves
+p1 <- make_box(trait_birds_log, "taxa_fenotipica", xlab = "", "#F57220",
+               bquote("Morphology " ~ sigma^2))
+p2 <- make_box(trait_birds_log, "taxa_omi", xlab = "", "#5C7879",
+               bquote("Niche position " ~ sigma^2))
+p3 <- make_box(trait_birds_log, "taxa_tol", xlab = "Suborder", "#2DAEB3",
+               bquote("Niche breadth " ~ sigma^2))
+# Mammals
+p4 <- make_box(trait_mammals_log, "taxa_fenotipica", xlab = "", "#F57220",
+               bquote("Morphology " ~ sigma^2))
+p5 <- make_box(trait_mammals_log, "taxa_omi", xlab = "", "#5C7879",
+               bquote("Niche position " ~ sigma^2))
+p6 <- make_box(trait_mammals_log, "taxa_tol", xlab = "Suborder", "#2DAEB3",
+               bquote("Niche breadth " ~ sigma^2))
+
+plot_grid(p1,p4,
+          p2,p5,
+          p3,p6,
+          ncol = 2,
+          nrow = 3)
+
 ```
