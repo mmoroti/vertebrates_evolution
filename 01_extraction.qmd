@@ -23,13 +23,13 @@ library(BAMMtools) # BAMM package
 
 ```{r}
 #group <- "Amphibia"
-#group <- "Reptilia"
+group <- "Reptilia"
 #group <- "Aves"
-group <- "Mammalia"
+#group <- "Mammalia"
 ```
 
 ```{r}
-trait <- "BodyMass_g"
+trait <- "BodyLength_mm"
 ```
 
 Phenotype trait
@@ -38,10 +38,13 @@ Phenotype trait
 TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
 
 group_trait <- TetraData %>%
-  filter(Class == group) %>%
-  filter(ImputedMass == 0) %>%
+  #filter(Class == group) %>%
+  #filter(Order == "Squamata" | Order == "Rhynchocephalia") %>%
+  filter(ImputedLength == 0) %>%
+  filter(EcoMar == 0 & (EcoTer == 1 | EcoFresh == 1)) %>%
   select(Scientific.Name, all_of(trait)) %>%
-  mutate(across(all_of(trait), log))
+  mutate(across(all_of(trait), log)) %>%
+  mutate(Scientific.Name = gsub(" ", "_", Scientific.Name))
 
 group_community <- group_trait %>%
   pivot_wider(names_from = Scientific.Name, values_from = trait)
@@ -76,9 +79,9 @@ group_community <- group_trait %>%
 If you don't have any phylogeny tree, run here:
 
 ```{r}
-tree <- "amph_shl_new_Posterior_7238.1000.trees"
+#tree <- "amph_shl_new_Posterior_7238.1000.trees"
 #tree <- "squam_shl_new_Posterior_9755.1000.trees"
-#tree <- "mammals_birth_death_node-dated-completed-trees.nex"
+tree <- "mammals_birth_death_tip-dated-completed-trees.nex"
 #tree <- "birds_hackett_allspecies.nex"
 ```
 
@@ -147,16 +150,16 @@ especies_comuns <- intersect(
 group_trait_filter <- group_trait %>%
   filter(Scientific.Name %in% especies_comuns)
 
-position_niche <- as.numeric(group_trait_filter$OMI) # change trait if needed
-names(position_niche) <- group_trait_filter$Scientific.Name
+body_mass <- as.numeric(group_trait_filter$BodyMass_g)# change trait if needed
+names(body_mass) <- group_trait_filter$Scientific.Name
 ```
 
 1.3. Save trait file
 
 ```{r}
-write.table(position_niche, 
+write.table(body_mass, 
             file = file.path("BAMM", group, "/", 
-                             paste0(group,"_niche_position.txt")),
+                             paste0(group,"_body_traits.txt")),
             quote = FALSE, 
             #sep = "\t",  
             col.names = FALSE,
@@ -309,15 +312,15 @@ for(i in 1:10){
 
 ### 6.0 Reading multiple event data
 
-6.1. Set how many readings and trait type
+#### 6.1. Set how many readings and trait type
 
 ```{r}
-trait <- "OMI"
+trait <- "Body"
 n_arvores <- 10
 lista_dfs <- list()
 ```
 
-6.2. Run event data read
+#### 6.2. Run event data read
 
 ```{r}
 for (i in 7:n_arvores) {
@@ -348,8 +351,7 @@ for (i in 7:n_arvores) {
                                 trait, "rate_evolution.RData"))
 }
 ```
-
-6.3. Obtain event data result
+#### 6.3. Obtain event data result
 
 ```{r}
 load(file.path("BAMM", group,
@@ -363,4 +365,67 @@ rate_final <- Reduce(
     median_rate = apply(select(., starts_with("median_tree_")),
                         1, median, na.rm = TRUE)
   )
+```
+
+#### 6.4. Obtain trait rate through time
+```{r}
+group <- "Mammalia" # definy group
+file_trait <- "Body_size" # save destiny 
+directory <- file.path(
+  "E:","datasets_centrais","vertebrates_evolution"
+)
+
+# cria pasta "ratematrix" se ainda não existir
+if (!dir.exists(file.path(directory, file_trait, group, "ratematrix"))) {
+  dir.create(file.path(directory,file_trait, group, "ratematrix"), 
+             recursive = TRUE)
+}
+
+for (i in 1:2) {
+  
+  arvore <- read.tree(file.path(directory, file_trait, group, 
+                                paste0(group, "_Tree_", i, ".tre")))
+  
+  cat("Lendo EventData", i, "...\n")
+  
+  edata_body <- getEventData(
+    arvore, type = "trait",
+    eventdata = file.path(directory, "Body_size", group,
+                          paste0("event_data/", group , 
+                                 "_Tree_", i, "_event_data.txt")),
+    burnin = 0.2
+  )
+  
+  edata_position <- getEventData(
+    arvore, type = "trait",
+    eventdata = file.path(directory, "niche_position", group,
+                          paste0("event_data/", group ,
+                                 "_Tree_", i, "_event_data.txt")),
+    burnin = 0.2
+  )
+  
+  edata_breadth <- getEventData(
+    arvore, type = "trait",
+    eventdata = file.path(directory, "niche_breadth", group,
+                          paste0("event_data/", group ,
+                                 "_Tree_", i, "_event_data.txt")),
+    burnin = 0.2
+  )
+  
+  cat("Obtendo ratematrix", i, "...\n")
+  
+  ratematrix_body     <- getRateThroughTimeMatrix(edata_body)
+  ratematrix_position <- getRateThroughTimeMatrix(edata_position)
+  ratematrix_breadth  <- getRateThroughTimeMatrix(edata_breadth)
+  
+  cat("Salvando ratematrix", i, "...\n")
+  
+  save(
+    ratematrix_body,
+    ratematrix_position,
+    ratematrix_breadth,
+    file = file.path(directory, file_trait, group, "ratematrix",
+                     paste0("ratematrix_", group, "_", i, ".RData"))
+  )
+}
 ```
