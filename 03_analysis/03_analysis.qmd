@@ -1966,3 +1966,174 @@ ggsave(file.path("C:", "Users", "mmoro", "Desktop",
        dpi = 300, limitsize = FALSE) 
 
 ```
+
+#### 6.5. Plot rate-through-the-time
+```{r}
+plot_mean_ratematrices <- function(base_path, file_prefix, indices,
+                                   traits = c("body", "position", "breadth"),
+                                   colors = c("#F5CAC7", "#D6C9F2", "#BFD8E5"),
+                                   ylim = NULL, # NULL calcula automaticamente
+                                   method = c("mean", "median"),
+                                   disp = c("quantile", "sd", "none"),
+                                   ci_level = 0.95,
+                                   scale = TRUE,
+                                   reverse_time = TRUE,
+                                   plot_individuals = FALSE,
+                                   col_ind = "grey80",
+                                   alpha = 0.5) {
+  method <- match.arg(method)
+  disp   <- match.arg(disp)
+  if (length(colors) < length(traits)) stop("Forneça ao menos uma cor por trait.")
+  
+  # armazenar resultados para calcular ylim global se necessário
+  all_time_ref <- NULL
+  all_centers <- list()
+  all_lowers  <- list()
+  all_uppers  <- list()
+  
+  for (t_idx in seq_along(traits)) {
+    trait <- traits[t_idx]
+    rm_name <- paste0("ratematrix_", trait)
+    
+    times_list <- list()
+    avg_list   <- list()
+    
+    for (i in indices) {
+      file_path <- file.path(base_path, paste0(file_prefix, i, ".RData"))
+      if (!file.exists(file_path)) {
+        warning("Arquivo não encontrado, pulando: ", file_path)
+        next
+      }
+      env <- new.env()
+      load(file_path, envir = env)
+      if (!exists(rm_name, envir = env)) {
+        warning("Objeto '", rm_name, "' não em ", file_path, " — pulando.")
+        next
+      }
+      rm_obj <- get(rm_name, envir = env)
+      
+      pr <- try(plotRateThroughTime(rm_obj, plot = FALSE, opacity = 0), silent = TRUE)
+      if (inherits(pr, "try-error") || is.null(pr$time) || is.null(pr$avg)) {
+        warning("Não foi possível extrair time/avg de ", file_path, " — pulando.")
+        next
+      }
+      
+      times_list[[length(times_list) + 1]] <- pr$time
+      avg_vals <- pr$avg
+      
+      if (scale) {
+        rng <- max(avg_vals, na.rm = TRUE) - min(avg_vals, na.rm = TRUE)
+        if (!is.na(rng) && rng > 0) avg_vals <- (avg_vals - min(avg_vals, na.rm = TRUE)) / rng
+      }
+      
+      avg_list[[length(avg_list) + 1]] <- avg_vals
+      # salva time_ref a partir do primeiro arquivo válido deste trait
+      if (is.null(all_time_ref)) all_time_ref <- pr$time
+    } # fim loop indices
+    
+    if (length(avg_list) == 0) {
+      warning("Nenhuma série válida para trait ", trait, " — pulando.")
+      next
+    }
+    
+    # grade de tempo comum: usa a do primeiro arquivo válido (times_list[[1]])
+    time_ref <- times_list[[1]]
+    
+    # interpola cada série para time_ref
+    mat <- matrix(NA_real_, nrow = length(time_ref), ncol = length(avg_list))
+    for (j in seq_along(avg_list)) {
+      mat[, j] <- approx(x = times_list[[j]], y = avg_list[[j]], xout = time_ref, rule = 2)$y
+    }
+    
+    # centro
+    center <- if (method == "mean") rowMeans(mat, na.rm = TRUE) else apply(mat, 1, median, na.rm = TRUE)
+    
+    # dispersão
+    if (disp == "quantile") {
+      lo_p <- (1 - ci_level) / 2
+      hi_p <- 1 - lo_p
+      lower <- apply(mat, 1, function(x) quantile(x, lo_p, na.rm = TRUE))
+      upper <- apply(mat, 1, function(x) quantile(x, hi_p, na.rm = TRUE))
+    } else if (disp == "sd") {
+      s <- apply(mat, 1, sd, na.rm = TRUE)
+      lower <- center - s
+      upper <- center + s
+    } else { # none
+      lower <- rep(NA_real_, length(center))
+      upper <- rep(NA_real_, length(center))
+    }
+    
+    all_centers[[trait]] <- list(time = time_ref, center = center)
+    all_lowers[[trait]]  <- lower
+    all_uppers[[trait]]  <- upper
+  } # fim traits loop
+  
+  # calcula ylim se NULL (combina todos os valores)
+  if (is.null(ylim)) {
+    vals <- c()
+    for (trait in names(all_centers)) {
+      vals <- c(vals, all_centers[[trait]]$center, all_lowers[[trait]], all_uppers[[trait]])
+    }
+    ylim <- range(vals, na.rm = TRUE)
+  }
+  
+  # preparar plot com xlim invertido se reverse_time = TRUE
+  time_common <- all_centers[[1]]$time
+  if (reverse_time) xlim_use <- c(max(time_common, na.rm = TRUE), min(time_common, na.rm = TRUE)) else xlim_use <- range(time_common, na.rm = TRUE)
+  
+  plot(NA, xlim = xlim_use, ylim = ylim, 
+       xlab = "Time before present", 
+       ylab = "Evolutionary rates",
+       main = "", bty = "n")
+  
+  # desenha em seguida
+  for (t_idx in seq_along(traits)) {
+    trait <- traits[t_idx]
+    if (!trait %in% names(all_centers)) next
+    time_ref <- all_centers[[trait]]$time
+    center <- all_centers[[trait]]$center
+    lower  <- all_lowers[[trait]]
+    upper  <- all_uppers[[trait]]
+    
+    # polygon CI
+    if (disp != "none") {
+      polygon(x = c(time_ref, rev(time_ref)),
+              y = c(upper, rev(lower)),
+              col = adjustcolor(colors[t_idx], alpha.f = alpha),
+              border = NA)
+    }
+    
+    # linha média
+    lines(time_ref, center, col = colors[t_idx], lwd = 3)
+    
+    # linhas individuais opcionais (re-extraindo se quiser — aqui deixei FALSE por padrão)
+    if (plot_individuals) {
+      # re-load each file to draw individuals (opcional; não implementado para não re-carregar tudo)
+      warning("plot_individuals = TRUE não implementado nesta versão para evitar loads extras.")
+    }
+  }
+  
+  legend("top", legend = traits,
+         col = colors[seq_along(traits)], lwd = 5,
+         bty = "n", ncol = 3)
+  
+  invisible(list(centers = all_centers, lowers = all_lowers, uppers = all_uppers))
+}
+```
+
+```{r}
+group <- "Aves"
+base_path <- file.path("G:", "Meu Drive", "Artigos", "vertebrates_evolution",
+                       group, "ratematrix")
+
+plot_mean_ratematrices(base_path = base_path,
+                       file_prefix = paste0("ratematrix_", group, "_"),
+                       indices = 1:5,
+                       traits = c("body","position","breadth"),
+                       colors = c("#F5CAC7", "#D6C9F2", "#BFD8E5"),
+                       scale = TRUE,          # mantém valores originais
+                       method = "mean",       # ou "median"
+                       disp = "quantile",     # ou "sd" ou "none"
+                       ci_level = 0.95,
+                       reverse_time = TRUE)
+```
