@@ -427,16 +427,6 @@ trait_birds_log <- df_trait_birds %>%
     taxa_tol   = scale(log(taxa_tol)),
     taxa_omi = scale(log(taxa_omi)),
     Verticality = scale(Verticality^2))
-
-# Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_birds_log %>%
-                            select(OMI, Tol), #, taxa_tol
-                          "normalize")
-# Removendo as nao padronizadas e 
-# e normalizando as preditoras
-trait_birds_normalize <- cbind(trait_birds_log %>%
-                               select(-OMI, -Tol),
-                             normalize_variables)
 ```
 
 #### 2.4. Mammals
@@ -485,16 +475,6 @@ trait_mammals_log <- df_trait_mammals %>%
     taxa_tol   = scale(log(taxa_tol)),
     taxa_omi = scale(log(taxa_omi)),
     Verticality = scale(Verticality^2))
-
-# Normalizando as preditoras
-normalize_variables <- vegan::decostand(trait_mammals_log %>%
-                            select(OMI, Tol), #, taxa_tol
-                          "normalize")
-# Removendo as nao padronizadas e 
-# e normalizando as preditoras
-trait_mammals_normalize <- cbind(trait_mammals_log %>%
-                               select(-OMI, -Tol),
-                             normalize_variables)
 ```
 
 ### 3. PhyloPath
@@ -729,8 +709,6 @@ plot(average_amphibia_model,
 coef_plot(average_amphibia_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
-
-p$data
 ```
 
 ##### 3.1.1. Anura
@@ -1054,7 +1032,11 @@ plot(average_mammals_model,
   edge_width = 1.25,
   curvature = 0.05,
   rotation = 0,
-  algorith = 'mds') 
+  algorith = 'sugiyama') 
+
+coef_plot(average_mammals_model, reverse_order = TRUE) +
+  coord_flip() +
+  theme_bw()
 ```
 
 ##### 3.4.1 Only rodents
@@ -1084,23 +1066,26 @@ ggsave("../figures/model_rodents.tiff",
        units = "cm",
        device = "tiff")
 
-plot(best(result_rodents))
+#plot(best(result_rodents))
+#coef_plot(best(result_rodents))
 
-coef_plot(best(result_rodents))
+# media dos modelos concorrentes
+average_rodents_model <- average(result_rodents)
+# increase the curvature to avoid overlapping edges
+plot(average_rodents_model,
+  labels = c("taxa_fenotipica" = "Morphology",
+             "taxa_tol" = "Niche \nbreadth",
+             "taxa_omi" = "Niche position",
+             "Verticality" = "Verticality"),
+  text_size = 5,
+  edge_width = 1.25,
+  curvature = 0.05,
+  rotation = 0,
+  algorith = "sugiyama") 
 
-## media dos modelos concorrentes
-#average_rodents_model <- average(result_rodents)
-## increase the curvature to avoid overlapping edges
-#plot(average_rodents_model,
-#  labels = c("taxa_fenotipica" = "Morphology",
-#             "taxa_tol" = "Niche \nbreadth",
-#             "taxa_omi" = "Niche position",
-#             "Verticality" = "Verticality"),
-#  text_size = 5,
-#  edge_width = 1.25,
-#  curvature = 0.05,
-#  rotation = 0,
-#  algorith = 'mds') 
+coef_plot(average_rodents_model, reverse_order = TRUE) +
+  coord_flip() +
+  theme_bw() 
 ```
 
 ##### 3.4.2 Only bats
@@ -1142,10 +1127,12 @@ plot(average_bats_model,
   edge_width = 1.25,
   curvature = 0.05,
   rotation = 0,
-  algorith = 'mds') 
+  algorith = 'sugiyama') 
 
 
-coef_plot(average_bats_model)
+coef_plot(average_bats_model, reverse_order = TRUE) +
+  coord_flip() +
+  theme_bw() 
 ```
 
 ##### 3.4.3 Non-bats & Non-rodents
@@ -1189,7 +1176,9 @@ plot(average_without_model,
   rotation = 0,
   algorith = "sugiyama") 
 
-coef_plot(average_without_model)
+coef_plot(average_without_model, reverse_order = TRUE) +
+  coord_flip() +
+  theme_bw() 
 
 ```
 
@@ -1342,11 +1331,17 @@ plot(average_mammals_model_obs,
   edge_width = 1.25,
   curvature = 0.05,
   rotation = 0,
-  algorith = 'mds') 
+  algorith = "sugiyama") 
+
+coef_plot(average_mammals_model_obs, reverse_order = TRUE) +
+  coord_flip() +
+  theme_bw()
 ```
 
 ### 5.0. Sensitivity analysis of data
-Only terrestrial
+
+#### 5.1. Only terrestrial
+
 ```{r}
 # Dataset complete
 TetraData <- data.table::fread(
@@ -1444,7 +1439,8 @@ save(sensiPhy_amphibia,
      file = "sensiPhy_terrestrial_results.RData")
 ```
 
-Without marine-lineages
+#### 5.2. Without marine-lineages
+
 ```{r}
 # Dataset complete
 TetraData <- data.table::fread(
@@ -1549,7 +1545,9 @@ save(sensiPhy_amphibia,
 ```
 
 ### 6.0. Plots
+
 #### 6.1. Plot histogram
+
 ```{r}
 plot_density_trait <- function(df) {
   
@@ -1559,7 +1557,7 @@ plot_density_trait <- function(df) {
                   ~ (.-min(.)) / (max(.) - min(.)))) %>%
     pivot_longer(cols = c(taxa_fenotipica, taxa_omi, taxa_tol),
                  names_to = "variavel", values_to = "valor") %>%
-    mutate(variavel = recode(variavel,
+    mutate(variavel = dplyr::recode(variavel,
                              taxa_fenotipica = "Body size",
                              taxa_omi = "Position",
                              taxa_tol = "Breadth")) %>%
@@ -1589,9 +1587,9 @@ plot_density_trait <- function(df) {
                linetype = "dashed", linewidth = 1.2, alpha = 1) +
     scale_fill_manual(
       values = c(
-        "Body size" = "#F5CAC7",
-        "Position"   = "#D6C9F2",
-        "Breadth"    = "#BFD8E5"
+        "Body size" = "#FAB648",
+        "Position"   = "#8FC5FA",
+        "Breadth"    = "#83F58E"
       ),
       labels = labels_fill,
       guide = guide_legend(
@@ -1602,9 +1600,9 @@ plot_density_trait <- function(df) {
     ) +
     scale_color_manual(
       values = c(
-        "Body size" = "#F5CAC7",
-        "Position"   = "#D6C9F2",
-        "Breadth"    = "#BFD8E5"
+        "Body size" = "#FAB648",
+        "Position"   = "#8FC5FA",
+        "Breadth"    = "#83F58E"
       ),
       guide = "none"
     ) +
@@ -1656,6 +1654,7 @@ ggsave(file.path("C:", "Users", "mmoro", "Desktop",
 ```
 
 #### 6.2. Scatter plot between rates
+
 ```{r}
 df_scatter_plot <- trait_amphibia_log 
 
@@ -1731,7 +1730,7 @@ ggsave(file.path("C:", "Users", "mmoro", "Desktop",
                  paste0("scatterplot_",
                         group, ".tiff")), 
        plot=plot_rates, 
-       width=40, height=70, units="cm", 
+       width=30, height=70, units="cm", 
        dpi = 600, limitsize = FALSE)
 ```
 
@@ -1912,18 +1911,18 @@ make_box <- function(data, var, fill_color, ylab, xlab) {
 }
 
 # Amphibia
-p1 <- make_box(trait_amphibia_log, "taxa_fenotipica", xlab = "", "#F5CAC7",
-               bquote("Morphology " ~ sigma^2))
-p2 <- make_box(trait_amphibia_log, "taxa_omi",  xlab = "", "#D6C9F2",
+p1 <- make_box(trait_amphibia_log, "taxa_fenotipica", xlab = "", "#FAB648",
+               bquote("Body size " ~ sigma^2))
+p2 <- make_box(df_trait_amphibia, "taxa_omi",  xlab = "", "#8FC5FA",
                bquote("Niche position " ~ sigma^2))
-p3 <- make_box(trait_amphibia_log, "taxa_tol", xlab = "Suborder", "#BFD8E5",
+p3 <- make_box(df_trait_amphibia, "taxa_tol", xlab = "Suborder", "#83F58E",
                bquote("Niche breadth " ~ sigma^2))
 # Squamates
-p4 <- make_box(trait_reptilia_log, "taxa_fenotipica", xlab = "", "#F5CAC7",
-               bquote("Morphology " ~ sigma^2))
-p5 <- make_box(trait_reptilia_log, "taxa_omi",  xlab = "", "#D6C9F2",
+p4 <- make_box(trait_reptilia_log, "taxa_fenotipica", xlab = "", "#FAB648",
+               bquote("Body size " ~ sigma^2))
+p5 <- make_box(trait_reptilia_log, "taxa_omi",  xlab = "", "#8FC5FA",
                bquote("Niche position " ~ sigma^2))
-p6 <- make_box(trait_reptilia_log, "taxa_tol",xlab = "Suborder", "#BFD8E5",
+p6 <- make_box(trait_reptilia_log, "taxa_tol",xlab = "Suborder", "#83F58E",
                bquote("Niche breadth " ~ sigma^2))
 
 plot_box <- plot_grid(p1,p4,
@@ -1939,18 +1938,18 @@ ggsave(file.path("C:", "Users", "mmoro", "Desktop",
        dpi = 300, limitsize = FALSE) 
 
 # Aves
-p1 <- make_box(trait_birds_log, "taxa_fenotipica", xlab = "", "#F5CAC7",
-               bquote("Morphology " ~ sigma^2))
-p2 <- make_box(trait_birds_log, "taxa_omi", xlab = "", "#D6C9F2",
+p1 <- make_box(trait_birds_log, "taxa_fenotipica", xlab = "", "#FAB648",
+               bquote("Body size " ~ sigma^2))
+p2 <- make_box(trait_birds_log, "taxa_omi", xlab = "", "#8FC5FA",
                bquote("Niche position " ~ sigma^2))
-p3 <- make_box(trait_birds_log, "taxa_tol", xlab = "Suborder", "#BFD8E5",
+p3 <- make_box(trait_birds_log, "taxa_tol", xlab = "Suborder", "#83F58E",
                bquote("Niche breadth " ~ sigma^2))
 # Mammals
-p4 <- make_box(trait_mammals_log, "taxa_fenotipica", xlab = "", "#F5CAC7",
-               bquote("Morphology " ~ sigma^2))
-p5 <- make_box(trait_mammals_log, "taxa_omi", xlab = "", "#D6C9F2",
+p4 <- make_box(trait_mammals_log, "taxa_fenotipica", xlab = "", "#FAB648",
+               bquote("Body size " ~ sigma^2))
+p5 <- make_box(trait_mammals_log, "taxa_omi", xlab = "", "#8FC5FA",
                bquote("Niche position " ~ sigma^2))
-p6 <- make_box(trait_mammals_log, "taxa_tol", xlab = "Suborder", "#BFD8E5",
+p6 <- make_box(trait_mammals_log, "taxa_tol", xlab = "Suborder", "#83F58E",
                bquote("Niche breadth " ~ sigma^2))
 
 plot_box <- plot_grid(p1,p4,
@@ -1967,7 +1966,31 @@ ggsave(file.path("C:", "Users", "mmoro", "Desktop",
 
 ```
 
+```{r}
+df_trait_amphibia %>%
+  group_by(Suborder) %>%
+  summarise(phenotype_mean = median(taxa_fenotipica)) %>%
+  arrange(desc(phenotype_mean)) 
+
+df_trait_reptilia %>%
+  group_by(Suborder) %>%
+  summarise(phenotype_mean = median(taxa_fenotipica)) %>%
+  arrange(desc(phenotype_mean))
+
+df_trait_birds %>%
+  group_by(Suborder) %>%
+  summarise(phenotype_mean = median(taxa_fenotipica)) %>%
+  arrange(desc(phenotype_mean))
+
+df_trait_mammals %>%
+  group_by(Suborder) %>%
+  summarise(phenotype_mean = median(taxa_fenotipica)) %>%
+  arrange(desc(phenotype_mean))
+
+```
+
 #### 6.5. Plot rate-through-the-time
+
 ```{r}
 plot_mean_ratematrices <- function(base_path, file_prefix, indices,
                                    traits = c("body", "position", "breadth"),
@@ -2136,4 +2159,307 @@ plot_mean_ratematrices(base_path = base_path,
                        disp = "quantile",     # ou "sd" ou "none"
                        ci_level = 0.95,
                        reverse_time = TRUE)
+```
+
+#### 6.6. Coefficient plots
+
+```{r}
+p <- coef_plot(average_rep_model, reverse_order = TRUE) +
+  coord_flip() + 
+  theme_bw() 
+
+df <- p$data
+
+# plota manualmente (recriando o coef_plot de forma simples)
+levels(df$path) <- gsub("taxa_fenotipica", "Body size", levels(df$path))
+levels(df$path) <- gsub("taxa_omi", "Niche position", levels(df$path))
+levels(df$path) <- gsub("taxa_tol", "Niche breadth", levels(df$path))
+
+# mantém a ordem reversa igual ao coef_plot
+terms_ordered <- rev(unique(df$path))
+df$term_f <- factor(df$path, levels = terms_ordered)
+
+# cria um data.frame com as faixas coloridas
+bg <- data.frame(
+  term_f = terms_ordered,
+  group = c(rep("Grupo 1", 3),  # 3 primeiros = azul
+            rep("Grupo 2", 3),  # 2 seguintes = verde
+            rep("Grupo 3", 3),
+            rep("Grupo 4", 3)))
+
+# junta as cores com a ordem
+pal <- c("Grupo 1" = "#EAD4D3",   # azul clarinho
+         "Grupo 2" = "#E9E3D9",   # verde clarinho
+         "Grupo 3"  = "#B0DBC0",
+         "Grupo 4" = "#EAD4D3") 
+
+bg$xnum <- as.numeric(factor(bg$term_f, levels = terms_ordered))
+
+# faz o gráfico com faixas coloridas no fundo
+ggplot(df, aes(x = term_f, y = coef)) +
+  # faixas de fundo
+  geom_rect(
+    data = bg,
+    aes(xmin = xnum - 0.5, xmax = xnum + 0.5, ymin = -Inf, ymax = Inf, fill = group),
+    color = NA, alpha = 0.6,
+    inherit.aes = FALSE
+  ) +
+  scale_fill_manual(values = pal, guide = "none") +
+  
+  # barras de erro e pontos
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, color = "black") +
+  geom_point(shape = 21, size = 3, fill = "black", color = "black") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey50") +
+  
+  coord_flip() +
+  theme_bw() +
+  labs(x = NULL, y = "Path coefficient (estimate ± CI)",
+       title = NULL) +
+  theme(axis.text.y = element_text(size = 10))
+```
+
+
+#### 6.7. Rates throuth-the-time
+```{r}
+library(BAMMtools)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+plot_mean_ratematrices_geo <- function(base_path, file_prefix, indices,
+                                       traits = c("body", "position", "breadth"),
+                                       colors = c("#F5CAC7", "#D6C9F2", "#BFD8E5"),
+                                       method = c("mean", "median"),
+                                       disp = c("quantile", "sd", "none"),
+                                       ci_level = 0.95,
+                                       scale = TRUE,
+                                       reverse_time = TRUE,   # se TRUE, tempo vai do passado -> 0 presente (scale_x_reverse)
+                                       alpha = 0.3,
+                                       plot_individuals = FALSE) {
+  method <- match.arg(method)
+  disp   <- match.arg(disp)
+  if (length(colors) < length(traits)) stop("Forneça ao menos uma cor por trait.")
+  
+  # armazenar resultados
+  all_centers <- list()
+  all_lowers  <- list()
+  all_uppers  <- list()
+  time_common <- NULL
+  
+  for (t_idx in seq_along(traits)) {
+    trait <- traits[t_idx]
+    rm_name <- paste0("ratematrix_", trait)
+    
+    times_list <- list(); avg_list <- list()
+    for (i in indices) {
+      file_path <- file.path(base_path, paste0(file_prefix, i, ".RData"))
+      if (!file.exists(file_path)) next
+      env <- new.env(); load(file_path, envir = env)
+      if (!exists(rm_name, envir = env)) next
+      rm_obj <- get(rm_name, envir = env)
+      pr <- try(plotRateThroughTime(rm_obj, plot = FALSE, opacity = 0), silent = TRUE)
+      if (inherits(pr, "try-error") || is.null(pr$time) || is.null(pr$avg)) next
+      
+      times_list[[length(times_list) + 1]] <- pr$time
+      avg_vals <- pr$avg
+      if (scale) {
+        rng <- max(avg_vals, na.rm = TRUE) - min(avg_vals, na.rm = TRUE)
+        if (!is.na(rng) && rng > 0) avg_vals <- (avg_vals - min(avg_vals, na.rm = TRUE)) / rng
+      }
+      avg_list[[length(avg_list) + 1]] <- avg_vals
+      if (is.null(time_common)) time_common <- pr$time
+    }
+    if (length(avg_list) == 0) next
+    
+    # use time_common as reference (first valid series)
+    time_ref <- times_list[[1]]
+    mat <- matrix(NA_real_, nrow = length(time_ref), ncol = length(avg_list))
+    for (j in seq_along(avg_list)) {
+      mat[, j] <- approx(x = times_list[[j]], y = avg_list[[j]], xout = time_ref, rule = 2)$y
+    }
+    center <- if (method == "mean") rowMeans(mat, na.rm = TRUE) else apply(mat, 1, median, na.rm = TRUE)
+    if (disp == "quantile") {
+      lo_p <- (1 - ci_level)/2; hi_p <- 1 - lo_p
+      lower <- apply(mat, 1, function(x) quantile(x, lo_p, na.rm = TRUE))
+      upper <- apply(mat, 1, function(x) quantile(x, hi_p, na.rm = TRUE))
+    } else if (disp == "sd") {
+      s <- apply(mat, 1, sd, na.rm = TRUE); lower <- center - s; upper <- center + s
+    } else {
+      lower <- rep(NA_real_, length(center)); upper <- rep(NA_real_, length(center))
+    }
+    
+    all_centers[[trait]] <- data.frame(time = time_ref, center = center, lower = lower, upper = upper, trait = trait, stringsAsFactors = FALSE)
+  }
+  
+  # juntar tudo em formato longo para ggplot
+  df_list <- do.call(rbind, all_centers)
+  if (is.null(df_list) || nrow(df_list) == 0) stop("Nenhuma série válida para plot.")
+  
+  # se quiser inverter a direção do tempo: usaremos scale_x_reverse() no ggplot
+  # ggplot espera: x numeric (tempo), y numeric
+  # preparar ggplot
+  p <- ggplot(df_list, aes(x = time, y = center, color = trait, fill = trait)) +
+    geom_ribbon(aes(ymin = lower, ymax = upper), alpha = alpha, color = NA) +
+    geom_line(size = 1.2) +
+    scale_color_manual(
+      values = setNames(colors[seq_along(traits)], traits),
+      breaks = traits,
+      labels = c("Body size", "Position", "Breadth")
+    ) +
+    scale_fill_manual(values = setNames(adjustcolor(colors[seq_along(traits)], alpha.f = alpha), traits)) +
+    labs(x = "Time before present", y = "",
+         color = "", fill = "") +
+    guides(
+      color = guide_legend(
+        ncol = 3,
+        override.aes = list(
+          size = 3,         # aumenta espessura da linha
+          linetype = "solid"  # garante que seja linha contínua
+        )
+      ),
+      fill = "none"
+    ) +
+    theme_classic() +
+    theme(
+      legend.position = c(0.5, 0.95),  # centralizado e dentro do gráfico
+      legend.background = element_rect(fill = "white", color = NA),  # opcional: fundo branco
+      legend.box.background = element_rect(color = NA),              # remove borda
+      legend.box = "horizontal",
+      legend.direction = "horizontal",
+      legend.title = element_text(size = 30),
+      legend.text = element_text(size = 20),
+      legend.spacing.x = unit(0.5, "cm"),
+      legend.key.width = unit(1.2, "cm"),
+      legend.key.height = unit(0.8, "cm"),
+      legend.margin = margin(t = 10),
+      legend.box.margin = margin(b = 10),
+      legend.justification = "center",
+      legend.box.just = "center",
+      axis.text.x = element_text(size = 12),  # tamanho do título do eixo X
+      axis.text.y = element_text(size = 12),
+      axis.title.x = element_text(size = 18),  # tamanho do título do eixo X
+      axis.title.y = element_text(size = 18)   # tamanho do título do eixo Y
+    )
+  # inverter eixo para que 0 (presente) fique à direita
+  if (reverse_time) p <- p + scale_x_reverse()
+  
+  # tentar adicionar coord_geo() do pacote deeptime (se disponível)
+  if (requireNamespace("deeptime", quietly = TRUE)) {
+    # coord_geo acrescenta rótulos/faixas geológicas; você pode personalizar parâmetros se quiser
+    p <- p + deeptime::coord_geo()
+  } else {
+    message("Pacote 'deeptime' não instalado — mostrando escala numérica simples. Para rótulos geológicos, instale deeptime::install_github('PaleobiologyLab/deeptime') ou CRAN.")
+  }
+  
+  # opcional: mostra séries individuais esmaecidas por trás
+  if (plot_individuals) {
+    # replot individuals: precisamos recarregar as séries ou tê-las armazenadas. Implementação simples:
+    # carregar de novo e adicionar lines com alpha baixo (omiti para evitar reloads pesados).
+    warning("plot_individuals = TRUE não implementado nesta versão para evitar múltiplos loads.")
+  }
+  
+  print(p)
+  invisible(p)
+}
+
+amphibia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
+  "G:", 
+  "Meu Drive",
+  "Artigos",
+  "vertebrates_evolution",
+  "Amphibia", "ratematrix"),
+  file_prefix = paste0("ratematrix_Amphibia_"),
+  indices = 1:2,
+  traits = c("body","position","breadth"),
+  colors = c("#FAB648","#8FC5FA","#83F58E"),
+  method = "mean",
+  disp = "quantile",
+  ci_level = 0.95,
+  scale = TRUE,
+  reverse_time = TRUE,
+  alpha = 0.5) + 
+  deeptime::coord_geo(
+    dat = list("periods", "eras"), xlim = c(310, 0), ylim = c(0, 1),
+    pos = list("b", "b"), abbrv = list(TRUE, FALSE)
+  ); amphibia_rates
+
+reptilia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
+  "G:", 
+  "Meu Drive",
+  "Artigos",
+  "vertebrates_evolution",
+  "Reptilia", "ratematrix"),
+  file_prefix = paste0("ratematrix_Reptilia_"),
+  indices = 1:6,
+  traits = c("body","position","breadth"),
+  colors = c("#FAB648","#8FC5FA","#83F58E"),
+  method = "mean",
+  disp = "quantile",
+  ci_level = 0.95,
+  scale = TRUE,
+  reverse_time = TRUE,
+  alpha = 0.5) + 
+  deeptime::coord_geo(
+    dat = list("periods", "eras"), xlim = c(240, 0), ylim = c(0, 1),
+    pos = list("b", "b"), abbrv = list(TRUE, FALSE)
+  ); reptilia_rates
+
+
+aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
+  "G:", 
+   "Meu Drive",
+   "Artigos",
+   "vertebrates_evolution",
+   "Aves", "ratematrix"),
+  file_prefix = paste0("ratematrix_Aves_"),
+  indices = 1:9,
+  traits = c("body","position","breadth"),
+  colors = c("#FAB648","#8FC5FA","#83F58E"),
+  method = "mean",
+  disp = "quantile",
+  ci_level = 0.95,
+  scale = TRUE,
+  reverse_time = TRUE,
+  alpha = 0.5) + 
+  deeptime::coord_geo(
+  dat = list("periods", "eras"), xlim = c(100, 0), ylim = c(0, 1),
+  pos = list("b", "b"), abbrv = list(TRUE, FALSE)
+); aves_rates
+
+mammals_rates <- plot_mean_ratematrices_geo(base_path = file.path(
+  "G:", 
+  "Meu Drive",
+  "Artigos",
+  "vertebrates_evolution",
+  "Mammalia", "ratematrix"),
+  file_prefix = paste0("ratematrix_Mammalia_"),
+  indices = 1:2,
+  traits = c("body","position","breadth"),
+  colors = c("#FAB648","#8FC5FA","#83F58E"),
+  method = "mean",
+  disp = "quantile",
+  ci_level = 0.95,
+  scale = TRUE,
+  reverse_time = TRUE,
+  alpha = 0.5) + 
+  deeptime::coord_geo(
+    dat = list("periods", "eras"), xlim = c(250, 0), ylim = c(0, 1),
+    pos = list("b", "b"), abbrv = list(TRUE, FALSE)
+  ); mammals_rates
+
+plot_rates <- cowplot::plot_grid(
+  amphibia_rates,
+  reptilia_rates,
+  aves_rates,
+  mammals_rates,
+  ncol = 2,
+  nrow = 2
+); plot_rates
+
+ggsave(file.path("C:", "Users", "mmoro", "Desktop",
+                 paste0("ratetime_",
+                        group, ".pdf")), 
+       plot= plot_rates, 
+       width=15, height=10, units="cm", 
+       dpi = 600, limitsize = FALSE) 
 ```
