@@ -24,19 +24,19 @@ The workflow follows three main steps: (1) obtaining evolutionary metrics (**`01
 
 To reproduce the full analytical workflow:
 
-Run **`01_extraction.qmd`** to extract evolutionary rates of body size;
+-   Run **`01_extraction.qmd`** to extract evolutionary rates of body size;
 
-Run **`02_metrics.qmd`** to calculate climatic niche metrics;
+-   Run **`02_metrics.qmd`** to calculate climatic niche metrics;
 
-Run **`01_extraction.qmd`** again to extract evolutionary rates of the climatic niche;
+-   Run **`01_extraction.qmd`** again to extract evolutionary rates of the climatic niche;
 
-Finally, run **`03_analysis.qmd`** to perform structural equation modeling and generate the main figures of the manuscript.
+-   Run **`03_analysis.qmd`** to perform structural equation modeling and generate the main figures of the manuscript.
 
-![Workflow of the analytical pipeline](figures/workflow.png){width="600"}
+![Workflow of the analytical pipeline](figures/workflow.png){width="550"}
 
-*Figure 1. Overview of the analytical workflow used in this study, from data preparation to final analyses.* \
-\
-\### Usage notes
+*Figure 1. Overview of the analytical workflow used in this study, from data preparation to final analyses.*
+
+### Usage notes
 
 R 4.4.1 software is required to open and ensure reproducibility all scripts. All analyses were performed in R and are fully reproducible using the materials provided here and on [Zenodo](link).
 
