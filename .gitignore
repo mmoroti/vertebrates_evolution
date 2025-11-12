@@ -12,6 +12,8 @@ acer-branch
 *02_metrics/climate_data
 *02_metrics/shapefiles
 
+*vertebrates_evolution.Rproj
+
 /BAMM
 /References
 /chainSwapPercent.R
