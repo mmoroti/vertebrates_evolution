@@ -19,6 +19,11 @@ library(BAMMtools) # BAMM package
 
 ### 0.1. Load data
 
+```{r}
+local_directory <- file.path("C:","Users","mmoro",
+                             "Desktop","vertebrates_evolution")
+```
+
 #### 0.1. Trait data
 
 ```{r}
@@ -29,13 +34,16 @@ group <- "Reptilia"
 ```
 
 ```{r}
-trait <- "BodyLength_mm"
+trait <- "BodyLength_mm" # for amphibians and squamates
+#trait <- "BodyMass_g" # for birds and mammals
 ```
 
 Phenotype trait
 
 ```{r}
-TetraData <- data.table::fread("traits/TetrapodTraits_1.0.0.csv")
+TetraData <- data.table::fread(file.path(
+  local_directory,"traits","TetrapodTraits_1.0.0.csv"
+))
 
 group_trait <- TetraData %>%
   #filter(Class == group) %>%
@@ -54,16 +62,15 @@ Climatic niche
 
 ```{r}
 load(
-  file.path("02_metrics", "omi_data",
-            "niche_df.RData"))
+  file.path(local_directory, "traits", "niche_df.RData"))
 
-# Para remover os 0, adicionar uma constante no Tol
-# menor valor positivo de Tol
+# add constant in zero values of Tol
 min_pos <- min(
   niche_mammals_terrestrial_df$Tol[niche_mammals_terrestrial_df$Tol > 0])
 constante <- min_pos * 0.1 # prop ao menor valor positivo
 
-group_trait <- niche_mammals_terrestrial_df %>%
+# Tol or OMI 
+group_trait <- niche_mammals_terrestrial_df %>% # choice tetrapod group
   mutate(Scientific.Name = rownames(niche_mammals_terrestrial_df)) %>%
   select(Scientific.Name, OMI) %>%
   mutate(Scientific.Name = gsub(" ", "_", Scientific.Name)) %>%
@@ -232,7 +239,7 @@ setwd(file.path("BAMM", group))
 4.2. Trait evolution rate
 
 ```{r}
-for(i in 2:length(sampled_trees)){
+for(i in 1:length(sampled_trees)){
   
   # Create a temporal copy of the divcontrol file
   tmp.divcontrol <- divcontrol
@@ -323,7 +330,7 @@ lista_dfs <- list()
 #### 6.2. Run event data read
 
 ```{r}
-for (i in 7:n_arvores) {
+for (i in 1:n_arvores) {
   # load tree
   arvore <- read.tree(file.path("BAMM", group, 
     paste0(group, "_Tree_", i, ".tre")))
@@ -351,6 +358,7 @@ for (i in 7:n_arvores) {
                                 trait, "rate_evolution.RData"))
 }
 ```
+
 #### 6.3. Obtain event data result
 
 ```{r}
@@ -368,22 +376,22 @@ rate_final <- Reduce(
 ```
 
 #### 6.4. Obtain trait rate through time
+
 ```{r}
-group <- "Mammalia" # definy group
-file_trait <- "Body_size" # save destiny 
+group <- "Aves" # definy group
 directory <- file.path(
-  "E:","datasets_centrais","vertebrates_evolution"
-)
+  local_directory, "BAMM", "body_size", group
+) # choice folder of trait
 
 # cria pasta "ratematrix" se ainda não existir
-if (!dir.exists(file.path(directory, file_trait, group, "ratematrix"))) {
-  dir.create(file.path(directory,file_trait, group, "ratematrix"), 
+if (!dir.exists(file.path(directory, "ratematrix"))) {
+  dir.create(file.path(directory, "ratematrix"), 
              recursive = TRUE)
 }
 
-for (i in 1:2) {
+for (i in 1:10) {
   
-  arvore <- read.tree(file.path(directory, file_trait, group, 
+  arvore <- read.tree(file.path(directory,
                                 paste0(group, "_Tree_", i, ".tre")))
   
   cat("Lendo EventData", i, "...\n")
@@ -424,7 +432,7 @@ for (i in 1:2) {
     ratematrix_body,
     ratematrix_position,
     ratematrix_breadth,
-    file = file.path(directory, file_trait, group, "ratematrix",
+    file = file.path(directory, "ratematrix",
                      paste0("ratematrix_", group, "_", i, ".RData"))
   )
 }

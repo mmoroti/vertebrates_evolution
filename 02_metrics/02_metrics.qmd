@@ -17,16 +17,22 @@ library(subniche)   # OMI analysis
 
 ### 1. Load data
 
+```{r}
+local_directory <- file.path("C:","Users","mmoro",
+                             "Desktop","vertebrates_evolution")
+```
+
 ##### 1.1. Distribution data
 
 ```{r}
 # Community data from TetrapodTraits
-vert_assemblages <- data.table::fread("Tetrapod_360.csv",
-                                      stringsAsFactors=T)
+vert_assemblages <- data.table::fread(
+  file.path(local_directory, "spatial_data",
+  "Tetrapod_360.csv"), stringsAsFactors=T)
 
 # Shapefile
 grid_cells_sf <- sf::st_read(dsn = file.path(
-    "..", "..", "wallacean_time", "Shapefiles", "TetrapodTraits_community"),
+    local_directory, "spatial_data","grid_110x110"),
     layer='gridcells_110km'
 )
 ```
@@ -35,7 +41,8 @@ grid_cells_sf <- sf::st_read(dsn = file.path(
 
 ```{r}
 grid_climate <- read_csv(
-  "../shapefile/climate_variables_grid.csv"
+  file.path(
+    local_directory, "spatial_data","climate_variables_grid.csv")
 ) %>%
   select(-Long, -Lat, -WWF_Rlm, -PrpLndA) %>%
   rename(bio1_mean = mean_bio1mean,
@@ -50,26 +57,30 @@ Herein, we use only species with body size or body mass data observed (non-imput
 
 ```{r}
 amphibia_trait <- read.table(file.path(
-  "..",
+  local_directory,
   "BAMM",
+  "body_size",
   "Amphibia",
   "Amphibia_body_traits.txt"))
 
 reptilia_trait <- read.table(file.path(
-  "..",
+  local_directory,
   "BAMM",
+  "body_size",
   "Reptilia",
   "Reptilia_body_traits.txt"))
 
 aves_trait <- read.table(file.path(
-  "..",
+  local_directory,
   "BAMM",
+  "body_size",
   "Aves",
   "Aves_body_traits.txt")) 
 
 mammalia_trait <- read.table(file.path(
-  "..", 
+  local_directory, 
   "BAMM",
+  "body_size",
   "Mammalia",
   "Mammalia_body_traits.txt")) 
 
@@ -88,7 +99,7 @@ all_species <- bind_rows(
 
 ```{r}
 TetraData <- data.table::fread(
-  file.path("..", "traits", "TetrapodTraits_1.0.0.csv"))
+  file.path(local_directory, "traits", "TetrapodTraits_1.0.0.csv"))
 
 # Species list with observed body size/mass
 species <- all_species %>% # 31682
@@ -470,14 +481,6 @@ save(
   niche_reptilia_terrestrial_df,
   niche_birds_terrestrial_df,
   niche_mammals_terrestrial_df,
-  file = "omi_data/niche_df.RData"
-)
-# To load in next step (04_plot)
-save(
-  dudi_amphibia_terrestre,
-  dudi_reptilia_terrestre,
-  dudi_birds_terrestre,
-  dudi_mammals_terrestre,
-  file = "omi_data/niche_pca.RData"
+  file = file.path(local_directory, "traits", "niche_df.RData")
 )
 ```
