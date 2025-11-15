@@ -8,38 +8,21 @@ editor: visual
 ### 0. Libraries
 
 ```{r}
-library(vegan) # normalize dataset
-library(picante) # prune sample with phy
 library(tidyverse) # data science handling
-library(phytools) # phylogenetic data
-library(geiger) # phylogenetic plot
-library(nlme) # gls analysis
-library(cowplot) # plots
-library(rr2) # r2 pgls
-library(hrbrthemes)
-# Sensitivity analysis
-library(sensiPhy)
-# PWR analysis
-library(pez)
-library(phylobase)
-library(MCMCglmm)
-library(diversitree)
-library(ib)
-# auxiliar na pwr
-library(grid)
-library(phylopath)
-library(ape)
-# plot tree
-library(ggtree)
-library(treeio)
-library(tidytree)
-library(ggplot2)
-library(TDbook)
-library(ggtree)
-library(ggnewscale)
+library(ape)       # read phylogeny
+library(phytools)  # phylogenetic data
+library(phylopath) # phylogenetic SEM
+library(sensiPhy)  # sensitivity analysis
+library(picante)   # prune sample with phy
+library(geiger)    # phylogenetic plot
+library(cowplot)   # plots
+library(ggtree)    # tree plot
+library(ggnewscale)# tree plot
+library(BAMMtools) # Plot rate-through-the-time
 ```
 
 ### 1. Load data
+
 ```{r}
 local_directory <- file.path("C:","Users","mmoro",
                              "Desktop","vertebrates_evolution")
@@ -691,7 +674,7 @@ plot(average_amphibia_model,
      rotation = 0,
      algorithm = "sugiyama")
 
-coef_plot(average_amphibia_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_amphibia_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -738,7 +721,7 @@ plot(average_anura_model,
   rotation = 0,
   algorith = 'mds') 
 
-coef_plot(average_anura_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_anura_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -858,7 +841,7 @@ plot(average_rep_model,
   rotation = 0,
   algorith = 'mds') 
 
-coef_plot(average_rep_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_rep_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -982,7 +965,7 @@ plot(average_birds_model,
   rotation = 0,
   algorith = 'mds') 
 
-coef_plot(average_birds_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_birds_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -1019,7 +1002,7 @@ plot(average_mammals_model,
   rotation = 0,
   algorith = 'sugiyama') 
 
-coef_plot(average_mammals_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_mammals_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -1068,7 +1051,7 @@ plot(average_rodents_model,
   rotation = 0,
   algorith = "sugiyama") 
 
-coef_plot(average_rodents_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_rodents_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw() 
 ```
@@ -1115,7 +1098,7 @@ plot(average_bats_model,
   algorith = 'sugiyama') 
 
 
-coef_plot(average_bats_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_bats_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw() 
 ```
@@ -1161,10 +1144,9 @@ plot(average_without_model,
   rotation = 0,
   algorith = "sugiyama") 
 
-coef_plot(average_without_model, reverse_order = TRUE) +
+phylopath::coef_plot(average_without_model, reverse_order = TRUE) +
   coord_flip() +
   theme_bw() 
-
 ```
 
 ### 4. PhyloPath (Without ImputedHabitat)
@@ -1200,10 +1182,11 @@ plot(average_amphibia_model_obs,
      rotation = 0,
      algorithm = "sugiyama")
 
-coef_plot(average_amphibia_model_obs, reverse_order = TRUE) +
+phylopath::coef_plot(average_amphibia_model_obs, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
+
 #### 4.2. Squamata
 
 ```{r}
@@ -1236,7 +1219,7 @@ plot(average_rep_model_obs,
   rotation = 0,
   algorith = 'sugiyama') 
 
-coef_plot(average_rep_model_obs, reverse_order = TRUE) +
+phylopath::coef_plot(average_rep_model_obs, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -1277,7 +1260,7 @@ plot(average_birds_model_obs,
   rotation = 0,
   algorith = "sugiyama") 
 
-coef_plot(average_birds_model_obs, reverse_order = TRUE) +
+phylopath::coef_plot(average_birds_model_obs, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
@@ -1317,12 +1300,13 @@ plot(average_mammals_model_obs,
   rotation = 0,
   algorith = "sugiyama") 
 
-coef_plot(average_mammals_model_obs, reverse_order = TRUE) +
+phylopath::coef_plot(average_mammals_model_obs, reverse_order = TRUE) +
   coord_flip() +
   theme_bw()
 ```
 
 ### 5.0. Sensitivity analysis of data
+
 #### 5.1. Only terrestrial
 
 ```{r}
@@ -1377,7 +1361,7 @@ tree_amphibia <- read.tree(
     "amph_shl_new_Posterior_7238.1000.trees"
     )
   )[[1]]
-tree_amphibia <- drop.tip(tree_amphibia[[1]], "Homo_sapiens")
+tree_amphibia <- drop.tip(tree_amphibia, "Homo_sapiens")
 tree_squamata <- read.tree(
   file.path(
     local_directory, "BAMM", "phylogenies",
@@ -1479,7 +1463,7 @@ tree_amphibia <- read.tree(
     "amph_shl_new_Posterior_7238.1000.trees"
     )
   )[[1]]
-tree_amphibia <- drop.tip(tree_amphibia[[1]], "Homo_sapiens")
+tree_amphibia <- drop.tip(tree_amphibia, "Homo_sapiens")
 tree_squamata <- read.tree(
   file.path(
     local_directory, "BAMM", "phylogenies",
@@ -1521,8 +1505,8 @@ sensiPhy_mammals <- miss.phylo.d(
   binvar = BodyMass_g)
 ```
 
-
 ### 6.0. Plots
+
 #### 6.1. Plot histogram
 
 ```{r}
@@ -2025,24 +2009,24 @@ ggplot(df, aes(x = term_f, y = coef)) +
 
 #### 6.6. Rates through-the-time (scaled)
 ```{r}
-library(BAMMtools)
-library(ggplot2)
-library(tidyr)
-library(dplyr)
-
 plot_mean_ratematrices_geo <- function(base_path, file_prefix, indices,
                                        traits = c("body", "position", "breadth"),
-                                       colors = c("#F5CAC7", "#D6C9F2", "#BFD8E5"),
+                                       colors = c("#F5CAC7",
+                                                  "#D6C9F2",
+                                                  "#BFD8E5"),
                                        method = c("mean", "median"),
                                        disp = c("quantile", "sd", "none"),
                                        ci_level = 0.95,
                                        scale = TRUE,
-                                       reverse_time = TRUE,   # se TRUE, tempo vai do passado -> 0 presente (scale_x_reverse)
+                                       reverse_time = TRUE,   
+                                       # se TRUE, tempo vai do passado -> 
+                                       # 0 presente (scale_x_reverse)
                                        alpha = 0.3,
                                        plot_individuals = FALSE) {
   method <- match.arg(method)
   disp   <- match.arg(disp)
-  if (length(colors) < length(traits)) stop("Forneça ao menos uma cor por trait.")
+  if (length(colors) < length(traits)) stop(
+    "Forneça ao menos uma cor por trait.")
   
   # armazenar resultados
   all_centers <- list()
@@ -2167,17 +2151,14 @@ plot_mean_ratematrices_geo <- function(base_path, file_prefix, indices,
 }
 
 amphibia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
-  "G:", 
-  "Meu Drive",
-  "Artigos",
-  "vertebrates_evolution",
-  "Amphibia", "ratematrix"),
+  local_directory,
+  "BAMM", "ratematrix", "Amphibia"),
   file_prefix = paste0("ratematrix_Amphibia_"),
-  indices = 1:2,
+  indices = 1:4,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
   method = "mean",
-  disp = "quantile",
+  disp = "sd",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2188,17 +2169,14 @@ amphibia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   ); amphibia_rates
 
 reptilia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
-  "G:", 
-  "Meu Drive",
-  "Artigos",
-  "vertebrates_evolution",
-  "Reptilia", "ratematrix"),
+  local_directory,
+  "BAMM", "ratematrix", "Reptilia"),
   file_prefix = paste0("ratematrix_Reptilia_"),
-  indices = 1:6,
+  indices = 1:8,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
   method = "mean",
-  disp = "quantile",
+  disp = "sd",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2210,17 +2188,14 @@ reptilia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
 
 
 aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
-  "G:", 
-   "Meu Drive",
-   "Artigos",
-   "vertebrates_evolution",
-   "Aves", "ratematrix"),
+  local_directory,
+  "BAMM", "ratematrix", "Aves"),
   file_prefix = paste0("ratematrix_Aves_"),
-  indices = 1:9,
+  indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
   method = "mean",
-  disp = "quantile",
+  disp = "sd",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2231,17 +2206,14 @@ aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
 ); aves_rates
 
 mammals_rates <- plot_mean_ratematrices_geo(base_path = file.path(
-  "G:", 
-  "Meu Drive",
-  "Artigos",
-  "vertebrates_evolution",
-  "Mammalia", "ratematrix"),
+  local_directory,
+  "BAMM", "ratematrix", "Mammalia"),
   file_prefix = paste0("ratematrix_Mammalia_"),
-  indices = 1:2,
+  indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
   method = "mean",
-  disp = "quantile",
+  disp = "sd",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2261,9 +2233,8 @@ plot_rates <- cowplot::plot_grid(
 ); plot_rates
 
 ggsave(file.path("C:", "Users", "mmoro", "Desktop",
-                 paste0("ratetime_",
-                        group, ".pdf")), 
+                 paste0("ratetime_vertebrates_sd_mean", ".pdf")), 
        plot= plot_rates, 
-       width=15, height=10, units="cm", 
+       width=37, height=20, units="cm", 
        dpi = 600, limitsize = FALSE) 
 ```

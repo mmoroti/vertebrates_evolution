@@ -12,11 +12,9 @@ The [GitHub](https://github.com/mmoroti/vertebrates_evolution) repository contai
 
 -   **`01_extraction.qmd`** – Generates the priors for BAMM, checks the convergence of the runs, calculates the median evolutionary rates, and extracts the rate-through-time matrix. It uses trait data from [TetrapodTraits](https://zenodo.org/records/10582070), and the phylogenies used are available on [Zenodo](link)
 
--   **`02_metrics.qmd`** – Builds the community matrix for each terrestrial vertebrate group, loads the bioclimatic variables per grid, and calculates the niche position and breadth for each species. The results feed into **`01_extraction.qmd`**, but they can also be downloaded directly from [Zenodo](link)
+-   **``` 02_metrics/``02_metrics.qmd ```** – Builds the community matrix for each terrestrial vertebrate group, loads the bioclimatic variables per grid, and calculates the niche position and breadth for each species. The results feed into **`01_extraction.qmd`**, but they can also be downloaded directly from [Zenodo](link)
 
--   **`03_analysis.qmd`** – Performs structural equation modeling analyses incorporating phylogenetic autocorrelation, runs sensitivity tests, and generates the main figures of the manuscript, which were later refined in InkScape.
-
-### Zenodo Data Structure
+-   **``` 03_analysis/``03_analysis.qmd ```** – Performs structural equation modeling analyses incorporating phylogenetic autocorrelation, runs sensitivity tests, and generates the main figures of the manuscript, which were later refined in InkScape.
 
 The [Zenodo](link) deposit contains the following folders:
 
