@@ -2154,11 +2154,11 @@ amphibia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   local_directory,
   "BAMM", "ratematrix", "Amphibia"),
   file_prefix = paste0("ratematrix_Amphibia_"),
-  indices = 1:4,
+  indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
-  method = "mean",
-  disp = "sd",
+  method = "median",
+  disp = "quantile",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2166,17 +2166,17 @@ amphibia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   deeptime::coord_geo(
     dat = list("periods", "eras"), xlim = c(310, 0), ylim = c(0, 1),
     pos = list("b", "b"), abbrv = list(TRUE, FALSE)
-  ); amphibia_rates
+  )
 
 reptilia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   local_directory,
   "BAMM", "ratematrix", "Reptilia"),
   file_prefix = paste0("ratematrix_Reptilia_"),
-  indices = 1:8,
+  indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
-  method = "mean",
-  disp = "sd",
+  method = "median",
+  disp = "quantile",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2184,8 +2184,7 @@ reptilia_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   deeptime::coord_geo(
     dat = list("periods", "eras"), xlim = c(240, 0), ylim = c(0, 1),
     pos = list("b", "b"), abbrv = list(TRUE, FALSE)
-  ); reptilia_rates
-
+  )
 
 aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   local_directory,
@@ -2194,8 +2193,8 @@ aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
-  method = "mean",
-  disp = "sd",
+  method = "median",
+  disp = "quantile",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2203,7 +2202,7 @@ aves_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   deeptime::coord_geo(
   dat = list("periods", "eras"), xlim = c(100, 0), ylim = c(0, 1),
   pos = list("b", "b"), abbrv = list(TRUE, FALSE)
-); aves_rates
+)
 
 mammals_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   local_directory,
@@ -2212,8 +2211,8 @@ mammals_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   indices = 1:10,
   traits = c("body","position","breadth"),
   colors = c("#FAB648","#8FC5FA","#83F58E"),
-  method = "mean",
-  disp = "sd",
+  method = "median",
+  disp = "quantile",
   ci_level = 0.95,
   scale = TRUE,
   reverse_time = TRUE,
@@ -2221,7 +2220,7 @@ mammals_rates <- plot_mean_ratematrices_geo(base_path = file.path(
   deeptime::coord_geo(
     dat = list("periods", "eras"), xlim = c(250, 0), ylim = c(0, 1),
     pos = list("b", "b"), abbrv = list(TRUE, FALSE)
-  ); mammals_rates
+  )
 
 plot_rates <- cowplot::plot_grid(
   amphibia_rates,
@@ -2233,7 +2232,7 @@ plot_rates <- cowplot::plot_grid(
 ); plot_rates
 
 ggsave(file.path("C:", "Users", "mmoro", "Desktop",
-                 paste0("ratetime_vertebrates_sd_mean", ".pdf")), 
+                 paste0("ratetime_quantile_median", ".pdf")), 
        plot= plot_rates, 
        width=37, height=20, units="cm", 
        dpi = 600, limitsize = FALSE) 
